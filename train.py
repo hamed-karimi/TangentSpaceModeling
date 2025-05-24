@@ -113,7 +113,7 @@ class Trainer:
         if not os.path.exists(self.snapshot_dir):
             os.makedirs(self.snapshot_dir)
 
-        if os.path.exists(snapshot_path):
+        if os.path.exists(snapshot_path) and snapshot_path.endswith('.pth'):
             print("Loading snapshot")
             self._load_snapshot(snapshot_path)
         else:
