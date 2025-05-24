@@ -90,8 +90,8 @@ def generate_datasets(dataset_path, test=False):
             except:
                 print(rotation_dir, 'does not exist')
                 continue
-            if test and i == 10:
-                break
+            # if test and i == 10:
+            #     break
 
     # encoding_model = load_encoding_model()
     for split_name in ['train', 'val', 'test']:
