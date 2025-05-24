@@ -1,15 +1,15 @@
 {
     "N_OUTPUT_VECTORS": 6,
-    "PARALLEL": false,
+    "PARALLEL": true,
     "N_EPOCHS": 50,
     "LEARNING_RATE": 0.05,
-    "TRAIN_BATCH_SIZE": 2,
+    "TRAIN_BATCH_SIZE": 32,
     "VAL_BATCH_SIZE": 512,
     "NUM_WORKERS": 8,
     "MOMENTUM": 0.9,
     "WEIGHT_DECAY": 1e-4,
     "DO_VALIDATE": false,
-    "DATASET_PATH": "./Sample Dataset",
+    "DATASET_PATH": "/projects/sccn/andromeda1/karimike/SSL_Project/dataset/ShapeNet/ShapeNetCoreMultiViewDataset_A2",
     "SNAPSHOT_DIR": "./snapshots",
     "LOG_PATH": "./log.txt",
     "DEVICE": "cuda"

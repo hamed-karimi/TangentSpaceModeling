@@ -13,8 +13,20 @@ import ShapeNetDataLoader
 from Dataset import generate_datasets, load_dataset
 import json
 from types import SimpleNamespace
-import numpy as np
+import torch.nn.init as init
 
+
+def weights_init_orthogonal(module):
+    # classname = m.__class__.__name__
+    if isinstance(module, nn.Conv2d) or isinstance(module, nn.ConvTranspose2d):
+        init.orthogonal_(module.weight.data, gain=1)
+    elif isinstance(module, nn.Conv3d) or isinstance(module, nn.ConvTranspose3d):
+        init.orthogonal_(module.weight.data, gain=1)
+    elif isinstance(module, nn.Linear):
+        init.orthogonal_(module.weight.data, gain=1)
+    elif isinstance(module, nn.BatchNorm2d):
+        init.normal_(module.weight.data, 1.0, 0.02)
+        init.constant_(module.bias.data, 0.0)
 
 def setup_ddp(parallel):
     local_rank = int(os.environ["LOCAL_RANK"])
@@ -104,6 +116,9 @@ class Trainer:
         if os.path.exists(snapshot_path):
             print("Loading snapshot")
             self._load_snapshot(snapshot_path)
+        else:
+            print("Initializing weights")
+            self.model.apply(weights_init_orthogonal)
 
     def _criterion(self, z_dot, derivatives): # derivatives_shape (batch, 512, 6) # z_dot_shape (batch, 512)
         derivatives = derivatives.view(derivatives.shape[0], -1, derivatives.shape[-1])
@@ -153,9 +168,6 @@ class Trainer:
             with torch.no_grad():
                 z1 = self.encoding_model(viewpoint1)
                 z2 = self.encoding_model(viewpoint2)
-
-                # bg_z = self.encoding_model(torch.zeros_like(viewpoint1))
-                # bg_d = self.model(bg_z)
 
             derivatives = self.model(z1)
 
@@ -259,7 +271,7 @@ if __name__ == "__main__":
                       save_every=1,
                       print_every=1000,
                       snapshot_dir=params.SNAPSHOT_DIR,
-                      snapshot_path=os.path.join(params.SNAPSHOT_DIR, 'snapshot_15.pth'))
+                      snapshot_path=os.path.join(params.SNAPSHOT_DIR, ''))
 
     trainer.train(n_epochs=int(params.N_EPOCHS), do_validate=params.DO_VALIDATE)
     trainer.writer.close()
