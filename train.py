@@ -235,7 +235,7 @@ if __name__ == "__main__":
         rank = 0
 
     if rank == 0:
-        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, test=True)
+        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, test=False)
         if params.PARALLEL:
             torch.distributed.barrier()
 

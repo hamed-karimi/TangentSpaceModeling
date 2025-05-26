@@ -61,44 +61,49 @@ def get_split_transforms():
     ])
     return transform
 
-def generate_datasets(dataset_path, test=False):
-    # if portions is None:
-        # portions = {'train': .5, 'val': .15, 'test': .1}
-        # portions = {'train': .1, 'val': .03, 'test': .02}
+def generate_datasets(dataset_path, use_prev_indices, test=False):
+    if use_prev_indices:
+        datasets = {'train': None, 'val': None, 'test': None}
+        for split_name in ['train', 'val']:
+            datasets[split_name] = load_dataset(split_name=split_name)
+    else:
+        # if portions is None:
+            # portions = {'train': .5, 'val': .15, 'test': .1}
+            # portions = {'train': .1, 'val': .03, 'test': .02}
 
-    # step_size_dict = {'train': max(1, int(1 / portions['train'])),
-    #             'val': max(1, int(1 / portions['val'])),
-    #             'test': max(1, int(1 / portions['test']))}
+        # step_size_dict = {'train': max(1, int(1 / portions['train'])),
+        #             'val': max(1, int(1 / portions['val'])),
+        #             'test': max(1, int(1 / portions['test']))}
 
-    dataset_split_file_paths = {'train': [], 'val': [], 'test': []}
-    datasets = {'train': None, 'val': None, 'test': None}
-    print('generating datasets...')
-    data_categories_path_list = [os.path.join(dataset_path, x) for x in os.listdir(dataset_path) if '.' not in x]
-    data_models_dir_list = np.array([os.path.join(x, y) for x in data_categories_path_list for y in
-                                  os.listdir(x) if '.' not in y], dtype=object)
-    # data_models_path_list = [] #np.empty_like(data_models_dir_list, dtype=object)
-    for ind, split_name in enumerate(['train', 'val', 'test']):
-        for i in range(data_models_dir_list.shape[0]):
-            rotation_dir = os.path.join(str(data_models_dir_list[i]), 'models', '0')
-            try:
-                all_image_names = sorted([name for name in os.listdir(rotation_dir) if name.endswith('.png')])
-                two_frames_paths = [(os.path.join(rotation_dir, all_image_names[i]),
-                                     os.path.join(rotation_dir, all_image_names[i+1])) for i in range(0, len(all_image_names)-1)]
+        dataset_split_file_paths = {'train': [], 'val': [], 'test': []}
+        datasets = {'train': None, 'val': None, 'test': None}
+        print('generating datasets...')
+        data_categories_path_list = [os.path.join(dataset_path, x) for x in os.listdir(dataset_path) if '.' not in x]
+        data_models_dir_list = np.array([os.path.join(x, y) for x in data_categories_path_list for y in
+                                      os.listdir(x) if '.' not in y], dtype=object)
+        # data_models_path_list = [] #np.empty_like(data_models_dir_list, dtype=object)
+        for ind, split_name in enumerate(['train', 'val', 'test']):
+            for i in range(data_models_dir_list.shape[0]):
+                rotation_dir = os.path.join(str(data_models_dir_list[i]), 'models', '0')
+                try:
+                    all_image_names = sorted([name for name in os.listdir(rotation_dir) if name.endswith('.png')])
+                    two_frames_paths = [(os.path.join(rotation_dir, all_image_names[i]),
+                                         os.path.join(rotation_dir, all_image_names[i+1])) for i in range(0, len(all_image_names)-1)]
 
-                dataset_split_file_paths[split_name].extend(two_frames_paths)
+                    dataset_split_file_paths[split_name].extend(two_frames_paths)
 
-            except:
-                print(rotation_dir, 'does not exist')
-                continue
-            # if test and i == 10:
-            #     break
+                except:
+                    print(rotation_dir, 'does not exist')
+                    continue
+                if test and i == 10:
+                    break
 
-    # encoding_model = load_encoding_model()
-    for split_name in ['train', 'val', 'test']:
-        split_transform = get_split_transforms()
-        datasets[split_name] = ShapeNetMultiViewDataset(dataset_split_file_paths[split_name],
-                                                        transform=split_transform)
+        # encoding_model = load_encoding_model()
+        for split_name in ['train', 'val', 'test']:
+            split_transform = get_split_transforms()
+            datasets[split_name] = ShapeNetMultiViewDataset(dataset_split_file_paths[split_name],
+                                                            transform=split_transform)
 
-        save_dataset(split_name, dataset_split_file_paths[split_name])
-    print('train size: ', len(datasets['train']), 'val size: ', len(datasets['val']), 'test size: ', len(datasets['test']))
+            save_dataset(split_name, dataset_split_file_paths[split_name])
+        print('train size: ', len(datasets['train']), 'val size: ', len(datasets['val']), 'test size: ', len(datasets['test']))
     return datasets
