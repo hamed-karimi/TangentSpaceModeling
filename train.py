@@ -55,9 +55,7 @@ def prepare_training_objects(datasets_dict,
         lr=lr,
         momentum=momentum,
         weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=n_epochs)
-    # split_datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH,
-    #                                         portions = {'train': .5, 'val': .1, 'test': .1})
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
 
     train_loader = ShapeNetDataLoader.get_train_loader(train_dataset=datasets_dict['train'],
                                                        batch_size=train_batch_size,
@@ -68,9 +66,8 @@ def prepare_training_objects(datasets_dict,
                                                    parallel=parallel,
                                                    batch_size=val_batch_size,
                                                    n_cpus=n_cpus)
-    # criterion = nn.MSELoss()
 
-    return encoding_model, model, optimizer, scheduler, train_loader, val_loader #, criterion
+    return encoding_model, model, optimizer, scheduler, train_loader, val_loader
 
 
 class Trainer:
@@ -124,8 +121,11 @@ class Trainer:
         derivatives = derivatives.view(derivatives.shape[0], -1, derivatives.shape[-1])
         z_dot = z_dot.view(z_dot.shape[0], -1)
         derivatives_norms = torch.norm(derivatives, dim=1)
-        # derivatives_unit = derivatives / derivatives_norms.unsqueeze(1)
         norm_loss = self.unit_criterion(derivatives_norms, torch.ones_like(derivatives_norms))
+        z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
+        z_unit = z_dot / z_dot_norm
+        # z_unit[z_unit.isnan()] = 0
+        z_unit[z_dot_norm.squeeze() == 0, :] = 0
         z_unit = z_dot / torch.norm(z_dot, dim=1, keepdim=True)
         linear_fit = torch.linalg.lstsq(derivatives, z_unit.unsqueeze(2)) # might need to put z_unit.unsqueeze(2)
         residuals = torch.bmm(derivatives, linear_fit.solution) - z_unit.unsqueeze(2)
@@ -160,7 +160,8 @@ class Trainer:
 
     def _run_epoch(self, epoch):
         self.model.train()
-        loss_sum = 0.0
+        cum_norm_loss = 0.0
+        cum_span_loss = 0.0
         for i_batch, (viewpoint1, viewpoint2) in enumerate(self.train_dataloader):
             if params.PARALLEL:
                 viewpoint1 = viewpoint1.to(self.gpu_id)
@@ -170,20 +171,24 @@ class Trainer:
                 z2 = self.encoding_model(viewpoint2)
 
             derivatives = self.model(z1)
-
-            loss = self._criterion(z2 - z1, derivatives)
+            norm_loss, span_loss = self._criterion(z2 - z1, derivatives)
+            loss = norm_loss + span_loss
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-            loss_sum += loss.item()
+            cum_norm_loss += norm_loss.item()
+            cum_span_loss += span_loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
-                self.writer.add_scalar("Loss/train", loss_sum / (i_batch + 1),
+                self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
+                                       epoch * len(self.train_dataloader) + i_batch)
+                self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
                 print(
-                    f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | Loss {loss_sum / (i_batch + 1)}")
+                    f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
+                    f"Loss (norm, span) {cum_norm_loss / (i_batch + 1)}, {cum_span_loss / (i_batch + 1)}")
 
         self.scheduler.step()
 
@@ -216,7 +221,8 @@ class Trainer:
 
                 derivatives = self.model(z1)
 
-                loss = self._criterion(z2 - z1, derivatives)
+                norm_loss, span_loss = self._criterion(z2 - z1, derivatives)
+                loss = norm_loss + span_loss
                 loss_sum += loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:

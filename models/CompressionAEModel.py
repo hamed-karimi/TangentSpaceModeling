@@ -31,7 +31,6 @@ class EncodingModel(nn.Module):
 
         return x
 
-
 def load_encoding_model():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     encoding_model = EncodingModel().to(device)
@@ -47,6 +46,33 @@ def load_encoding_model():
     encoding_model.eval()
 
     return encoding_model
+
+class DecodingModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.decoder_transition = DecoderTransitionBlock(enable_bn=True)
+        self.decoder = VGGDecoder(configs=get_configs('vgg11')[::-1])
+
+    def forward(self, x):
+        x = self.decoder_transition(x)
+        x = self.decoder(x)
+        return x
+
+def load_decoding_model():
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    decoding_model = DecodingModel().to(device)
+    snapshot = torch.load('./weights/encoding model/snapshot_20.pth', map_location=device)
+    model_dict = decoding_model.state_dict()
+    new_state_dict = OrderedDict()  # deepcopy(snapshot['state_dict'])
+    for key in model_dict.keys():
+        if f'decoder' in key:
+            if f'module.{key}' in snapshot['state_dict'].keys():
+                new_state_dict[key] = snapshot['state_dict'][f'module.{key}']
+
+    print('decoding model:', decoding_model.load_state_dict(new_state_dict, strict=False))
+    decoding_model.eval()
+
+    return decoding_model
 
 
 class VGGAutoEncoder(nn.Module):
