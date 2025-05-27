@@ -88,7 +88,7 @@ class Trainer:
             self.device = torch.device(f'cuda:{self.gpu_id}')
             self.encoding_model = encoding_model.to(self.device)
             self.model = model.to(self.gpu_id)
-            self.model = DDP(self.model, device_ids=[self.gpu_id])
+            self.model = DDP(self.model, device_ids=[self.gpu_id], output_device=self.gpu_id)
         else:
             self.device = torch.device('cpu')
             self.gpu_id = 0
@@ -133,7 +133,7 @@ class Trainer:
         sse = se.sum(dim=1)
         span_loss = self.span_criterion(sse, torch.zeros_like(sse))
 
-        return norm_loss + span_loss
+        return norm_loss, span_loss
 
     def _load_snapshot(self, snapshot_path):
         snapshot = torch.load(snapshot_path, map_location=self.device)
