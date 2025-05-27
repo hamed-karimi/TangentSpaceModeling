@@ -61,7 +61,7 @@ def get_split_transforms():
     ])
     return transform
 
-def generate_datasets(dataset_path, use_prev_indices, test=False):
+def generate_datasets(dataset_path, use_prev_indices=False, test=False):
     if use_prev_indices:
         datasets = {'train': None, 'val': None, 'test': None}
         for split_name in ['train', 'val']:
