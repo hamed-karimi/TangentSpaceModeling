@@ -126,7 +126,6 @@ class Trainer:
         z_unit = z_dot / z_dot_norm
         # z_unit[z_unit.isnan()] = 0
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
-        z_unit = z_dot / torch.norm(z_dot, dim=1, keepdim=True)
         linear_fit = torch.linalg.lstsq(derivatives, z_unit.unsqueeze(2)) # might need to put z_unit.unsqueeze(2)
         residuals = torch.bmm(derivatives, linear_fit.solution) - z_unit.unsqueeze(2)
         se = residuals ** 2
