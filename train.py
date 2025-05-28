@@ -53,7 +53,7 @@ def prepare_training_objects(datasets_dict,
     optimizer = torch.optim.Adam(params=model.parameters(), #filter(lambda p: p.requires_grad, model.parameters())
                                  lr=lr,
                                  weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
 
     train_loader = ShapeNetDataLoader.get_train_loader(train_dataset=datasets_dict['train'],
                                                        batch_size=train_batch_size,
