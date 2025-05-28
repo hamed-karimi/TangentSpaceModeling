@@ -51,7 +51,7 @@ class DecodingModel(nn.Module):
     def __init__(self):
         super().__init__()
         self.decoder_transition = DecoderTransitionBlock(enable_bn=True)
-        self.decoder = VGGDecoder(configs=get_configs('vgg11')[::-1])
+        self.decoder = VGGDecoder(configs=get_configs('vgg11')[::-1], enable_bn=True)
 
     def forward(self, x):
         x = self.decoder_transition(x)
@@ -65,7 +65,9 @@ def load_decoding_model():
     model_dict = decoding_model.state_dict()
     new_state_dict = OrderedDict()  # deepcopy(snapshot['state_dict'])
     for key in model_dict.keys():
-        if f'decoder' in key:
+        if key in snapshot['state_dict'].keys():
+            new_state_dict[key] = snapshot['state_dict'][key]
+        elif f'decoder' in key:
             if f'module.{key}' in snapshot['state_dict'].keys():
                 new_state_dict[key] = snapshot['state_dict'][f'module.{key}']
 
@@ -215,7 +217,7 @@ class DecoderBlock(nn.Module):
                     layer = DecoderLayer(input_dim=hidden_dim, output_dim=hidden_dim, enable_bn=enable_bn,
                                          padding=padding)
 
-                self.add_module('%d DecoderLayer' % (i + 1), layer)
+                self.add_module('%d DecoderLayer' % (i+1), layer)
 
     def forward(self, x):
 
@@ -310,6 +312,3 @@ class DecoderTransitionBlock(nn.Module):
 #     output = model(input)
 
 #     print(output.shape)
-
-
-
