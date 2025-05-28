@@ -163,7 +163,7 @@ class Trainer:
         self.model.train()
         cum_norm_loss = 0.0
         cum_span_loss = 0.0
-        for i_batch, (viewpoint1, viewpoint2) in enumerate(self.train_dataloader):
+        for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
             if params.PARALLEL:
                 viewpoint1 = viewpoint1.to(self.gpu_id)
                 viewpoint2 = viewpoint2.to(self.gpu_id)
@@ -212,7 +212,7 @@ class Trainer:
         with torch.no_grad():
             self.model.eval()
             loss_sum = 0.0
-            for i_batch, (viewpoint1, viewpoint2) in enumerate(self.val_dataloader):
+            for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.val_dataloader):
                 if params.PARALLEL:
                     viewpoint1 = viewpoint1.to(self.gpu_id)
                     viewpoint2 = viewpoint2.to(self.gpu_id)

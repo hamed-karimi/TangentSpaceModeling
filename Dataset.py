@@ -35,7 +35,7 @@ class ShapeNetMultiViewDataset(data.Dataset):
             #     viewpoint1 = self.encoding_model(self.transform(viewpoint1))
             #     viewpoint2 = self.encoding_model(self.transform(viewpoint2))
 
-        return viewpoint1, viewpoint2
+        return viewpoint_path1, viewpoint1, viewpoint_path2, viewpoint2
 
 
 def load_dataset(split_name: str):
@@ -67,13 +67,6 @@ def generate_datasets(dataset_path, use_prev_indices=False, test=False):
         for split_name in ['train', 'val']:
             datasets[split_name] = load_dataset(split_name=split_name)
     else:
-        # if portions is None:
-            # portions = {'train': .5, 'val': .15, 'test': .1}
-            # portions = {'train': .1, 'val': .03, 'test': .02}
-
-        # step_size_dict = {'train': max(1, int(1 / portions['train'])),
-        #             'val': max(1, int(1 / portions['val'])),
-        #             'test': max(1, int(1 / portions['test']))}
 
         dataset_split_file_paths = {'train': [], 'val': [], 'test': []}
         datasets = {'train': None, 'val': None, 'test': None}
