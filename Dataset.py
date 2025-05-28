@@ -88,15 +88,15 @@ def generate_datasets(dataset_path, use_prev_indices=False, test=False):
                 try:
                     all_image_names = sorted([name for name in os.listdir(rotation_dir) if name.endswith('.png')])
                     even_frames_paths = [(os.path.join(rotation_dir, all_image_names[j]),
-                                         os.path.join(rotation_dir, all_image_names[j+2])) for j in
-                                         range(0, len(all_image_names) - 2, 2)]
+                                         os.path.join(rotation_dir, all_image_names[j+1])) for j in
+                                         range(0, len(all_image_names) - 1, 1)]
 
-                    odd_frames_paths = [(os.path.join(rotation_dir, all_image_names[j]),
-                                          os.path.join(rotation_dir, all_image_names[j + 2])) for j in
-                                         range(1, len(all_image_names) - 2, 2)]
+                    # odd_frames_paths = [(os.path.join(rotation_dir, all_image_names[j]),
+                    #                       os.path.join(rotation_dir, all_image_names[j + 2])) for j in
+                    #                      range(1, len(all_image_names) - 2, 2)]
 
                     dataset_split_file_paths[split_name].extend(even_frames_paths)
-                    dataset_split_file_paths[split_name].extend(odd_frames_paths)
+                    # dataset_split_file_paths[split_name].extend(odd_frames_paths)
 
                 except:
                     print(rotation_dir, 'does not exist')

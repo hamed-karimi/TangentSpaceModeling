@@ -22,7 +22,7 @@ class EncodingModel(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.encoder = VGGEncoder(configs=get_configs('vgg11'))
+        self.encoder = VGGEncoder(configs=get_configs('vgg11'), enable_bn=True)
         self.encoder_transition = EncoderTransitionBlock(enable_bn=True)
 
     def forward(self, x):
