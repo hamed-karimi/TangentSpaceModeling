@@ -131,7 +131,7 @@ class Trainer:
         residuals = torch.bmm(basis_vectors, linear_fit.solution) - z_unit.unsqueeze(2)
         se = residuals ** 2
         sse = se.sum(dim=1)
-        span_loss = sse #self.span_criterion(sse, torch.zeros_like(sse))
+        span_loss = torch.mean(sse) #self.span_criterion(sse, torch.zeros_like(sse))
 
         # return norm_loss, span_loss
         return span_loss
