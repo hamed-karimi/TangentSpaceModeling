@@ -115,7 +115,7 @@ class Trainer:
             print("Initializing weights")
             self.model.apply(weights_init_orthogonal)
 
-    def _criterion(self, z_dot, basis_vectors): # derivatives_shape (batch, 128, 3, 3, 6) # z_dot_shape (batch, 128, 3, 3)
+    def _criterion(self, z_dot, basis_vectors): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
         basis_vectors = basis_vectors.view(basis_vectors.shape[0], -1, basis_vectors.shape[-1])
         z_dot = z_dot.view(z_dot.shape[0], -1)
         basis_vectors_norms = torch.norm(basis_vectors, dim=1, keepdim=True)
@@ -183,10 +183,10 @@ class Trainer:
             cum_span_loss += span_loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
-                self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
-                                       epoch * len(self.train_dataloader) + i_batch)
-                # self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
+                # self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
                 #                        epoch * len(self.train_dataloader) + i_batch)
+                self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
+                                       epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
                     f"Loss (span) {cum_span_loss / (i_batch + 1)}")
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         rank = 0
 
     if rank == 0:
-        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, test=False, use_prev_indices=False)
+        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, test=False, use_prev_indices=True)
         if params.PARALLEL:
             torch.distributed.barrier()
 
