@@ -50,12 +50,10 @@ def prepare_training_objects(datasets_dict,
 
     encoding_model = load_encoding_model()
     model = TangentSpaceModel.Model(n_output_vectors, enable_bn)
-    optimizer = torch.optim.SGD(
-        params=filter(lambda p: p.requires_grad, model.parameters()),
-        lr=lr,
-        momentum=momentum,
-        weight_decay=weight_decay)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
+    optimizer = torch.optim.Adam(params=model.parameters(), #filter(lambda p: p.requires_grad, model.parameters())
+                                 lr=lr,
+                                 weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.5)
 
     train_loader = ShapeNetDataLoader.get_train_loader(train_dataset=datasets_dict['train'],
                                                        batch_size=train_batch_size,
@@ -117,22 +115,26 @@ class Trainer:
             print("Initializing weights")
             self.model.apply(weights_init_orthogonal)
 
-    def _criterion(self, z_dot, derivatives): # derivatives_shape (batch, 512, 6) # z_dot_shape (batch, 512)
-        derivatives = derivatives.view(derivatives.shape[0], -1, derivatives.shape[-1])
+    def _criterion(self, z_dot, basis_vectors): # derivatives_shape (batch, 128, 3, 3, 6) # z_dot_shape (batch, 128, 3, 3)
+        basis_vectors = basis_vectors.view(basis_vectors.shape[0], -1, basis_vectors.shape[-1])
         z_dot = z_dot.view(z_dot.shape[0], -1)
-        derivatives_norms = torch.norm(derivatives, dim=1)
-        norm_loss = self.unit_criterion(derivatives_norms, torch.ones_like(derivatives_norms))
+        basis_vectors_norms = torch.norm(basis_vectors, dim=1, keepdim=True)
+        basis_vectors = basis_vectors / basis_vectors_norms
+        zero_norms = (basis_vectors_norms == 0).expand_as(basis_vectors)
+        basis_vectors[zero_norms] = 0
+        # norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
         # z_unit[z_unit.isnan()] = 0
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
-        linear_fit = torch.linalg.lstsq(derivatives, z_unit.unsqueeze(2)) # might need to put z_unit.unsqueeze(2)
-        residuals = torch.bmm(derivatives, linear_fit.solution) - z_unit.unsqueeze(2)
+        linear_fit = torch.linalg.lstsq(basis_vectors, z_unit.unsqueeze(2)) # A.X = B
+        residuals = torch.bmm(basis_vectors, linear_fit.solution) - z_unit.unsqueeze(2)
         se = residuals ** 2
         sse = se.sum(dim=1)
-        span_loss = self.span_criterion(sse, torch.zeros_like(sse))
+        span_loss = sse #self.span_criterion(sse, torch.zeros_like(sse))
 
-        return norm_loss, span_loss
+        # return norm_loss, span_loss
+        return span_loss
 
     def _load_snapshot(self, snapshot_path):
         snapshot = torch.load(snapshot_path, map_location=self.device)
@@ -169,25 +171,25 @@ class Trainer:
                 z1 = self.encoding_model(viewpoint1)
                 z2 = self.encoding_model(viewpoint2)
 
-            derivatives = self.model(z1)
-            norm_loss, span_loss = self._criterion(z2 - z1, derivatives)
-            loss = norm_loss + span_loss
+            basis_vectors = self.model(z1)
+            span_loss = self._criterion(z2 - z1, basis_vectors)
+            loss = span_loss
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-            cum_norm_loss += norm_loss.item()
+            # cum_norm_loss += norm_loss.item()
             cum_span_loss += span_loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
                 self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
-                self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
-                                       epoch * len(self.train_dataloader) + i_batch)
+                # self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
+                #                        epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
-                    f"Loss (norm, span) {cum_norm_loss / (i_batch + 1)}, {cum_span_loss / (i_batch + 1)}")
+                    f"Loss (span) {cum_span_loss / (i_batch + 1)}")
 
         self.scheduler.step()
 
