@@ -137,7 +137,7 @@ class Trainer:
         return span_loss
 
     def _load_snapshot(self, snapshot_path):
-        snapshot = torch.load(snapshot_path, map_location=self.device)
+        snapshot = torch.load(snapshot_path, map_location=self.device, weights_only=True)
         model_dict = self.model.state_dict()
         new_state_dict = deepcopy(snapshot['state_dict'])
         for key in model_dict.keys():

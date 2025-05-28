@@ -34,7 +34,7 @@ class EncodingModel(nn.Module):
 def load_encoding_model():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     encoding_model = EncodingModel().to(device)
-    snapshot = torch.load('./weights/encoding model/snapshot_50.pth', map_location=device)
+    snapshot = torch.load('./weights/encoding model/snapshot_50.pth', map_location=device, weights_only=True)
     model_dict = encoding_model.state_dict()
     new_state_dict = OrderedDict() #deepcopy(snapshot['state_dict'])
     for key in model_dict.keys():
@@ -61,7 +61,7 @@ class DecodingModel(nn.Module):
 def load_decoding_model():
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     decoding_model = DecodingModel().to(device)
-    snapshot = torch.load('./weights/encoding model/snapshot_50.pth', map_location=device)
+    snapshot = torch.load('./weights/encoding model/snapshot_50.pth', map_location=device, weights_only=True)
     model_dict = decoding_model.state_dict()
     new_state_dict = OrderedDict()  # deepcopy(snapshot['state_dict'])
     for key in model_dict.keys():

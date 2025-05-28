@@ -79,7 +79,7 @@ def generate_datasets(dataset_path, use_prev_indices=False, test=False):
             for i in range(data_models_dir_list.shape[0]):
                 rotation_dir = os.path.join(str(data_models_dir_list[i]), 'models', '0')
                 try:
-                    all_image_names = sorted([name for name in os.listdir(rotation_dir) if name.endswith('.png')])
+                    all_image_names = sorted([name for name in os.listdir(rotation_dir) if name.endswith('.png')], key=lambda x: int(x.split('.')[0]))
                     even_frames_paths = [(os.path.join(rotation_dir, all_image_names[j]),
                                          os.path.join(rotation_dir, all_image_names[j+1])) for j in
                                          range(0, len(all_image_names) - 1, 1)]
