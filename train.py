@@ -99,7 +99,7 @@ class Trainer:
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
         self.unit_criterion = nn.MSELoss()
-        self.span_criterion = nn.MSELoss()
+        self.orth_criterion = nn.MSELoss()
         self.save_every = save_every
         self.print_every = print_every
         self.epochs_run = 0
@@ -122,7 +122,9 @@ class Trainer:
         basis_vectors = basis_vectors / basis_vectors_norms
         zero_norms = (basis_vectors_norms == 0).expand_as(basis_vectors)
         basis_vectors[zero_norms] = 0
-        # norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
+        norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
+        orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
+                                                 torch.identity(basis_vectors.shape[-1]).to(self.device))
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
         # z_unit[z_unit.isnan()] = 0
@@ -134,7 +136,7 @@ class Trainer:
         span_loss = torch.mean(sse) #self.span_criterion(sse, torch.zeros_like(sse))
 
         # return norm_loss, span_loss
-        return span_loss
+        return norm_loss, orthogonality_loss, span_loss
 
     def _load_snapshot(self, snapshot_path):
         snapshot = torch.load(snapshot_path, map_location=self.device, weights_only=True)
@@ -162,6 +164,7 @@ class Trainer:
     def _run_epoch(self, epoch):
         self.model.train()
         cum_norm_loss = 0.0
+        cum_orth_loss = 0.0
         cum_span_loss = 0.0
         for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
             if params.PARALLEL:
@@ -172,24 +175,29 @@ class Trainer:
                 z2 = self.encoding_model(viewpoint2)
 
             basis_vectors = self.model(z1)
-            span_loss = self._criterion(z2 - z1, basis_vectors)
-            loss = span_loss
+            norm_loss, orthogonality_loss, span_loss = self._criterion(z2 - z1, basis_vectors)
+            loss = norm_loss + orthogonality_loss + span_loss
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-            # cum_norm_loss += norm_loss.item()
+            cum_norm_loss += norm_loss.item()
+            cum_orth_loss += orthogonality_loss.item()
             cum_span_loss += span_loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
-                # self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
-                #                        epoch * len(self.train_dataloader) + i_batch)
+                self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
+                                       epoch * len(self.train_dataloader) + i_batch)
+                self.writer.add_scalar("Loss/train-orth", cum_orth_loss / (i_batch + 1),
+                                       epoch * len(self.train_dataloader) + i_batch)
                 self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
-                    f"Loss (span) {cum_span_loss / (i_batch + 1)}")
+                    f"Loss (span, orth, norm) {cum_span_loss / (i_batch + 1)} | "
+                    f"{cum_orth_loss / (i_batch + 1)} | "
+                    f"{cum_norm_loss / (i_batch + 1)}")
 
         self.scheduler.step()
 

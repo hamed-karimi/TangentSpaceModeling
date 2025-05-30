@@ -16,7 +16,7 @@ def get_train_loader(train_dataset, parallel, batch_size, n_cpus) -> torch.utils
     if parallel == 1:
         n_gpus = torch.cuda.device_count()
         num_workers = n_cpus // n_gpus
-        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)         
+        train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset, shuffle=True)
     else:  
         train_sampler = None
         num_workers = n_cpus
