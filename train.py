@@ -123,8 +123,10 @@ class Trainer:
         zero_norms = (basis_vectors_norms == 0).expand_as(basis_vectors)
         basis_vectors[zero_norms] = 0
         norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
+        batch_identity = torch.eye(basis_vectors.shape[-1], device=self.device).repeat(basis_vectors.shape[0], 1, 1)
         orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
-                                                 torch.identity(basis_vectors.shape[-1]).to(self.device))
+                                                 batch_identity)
+
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
         # z_unit[z_unit.isnan()] = 0
