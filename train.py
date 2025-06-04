@@ -129,8 +129,8 @@ class Trainer:
         orthogonality_loss = torch.tensor(0.0, device=self.device)
         norm_loss = torch.tensor(0.0, device=self.device)
 
-        tau = 0.05 # better to change this to ||z1-z2||?
-        smoothness_loss = -torch.mean(torch.log(torch.norm(basis_vectors1 - basis_vectors2, dim=1, keepdim=True)/tau + 1e-6))
+        # tau = 0.05 # better to change this to ||z1-z2||?
+        smoothness_loss = torch.mean(torch.norm(basis_vectors1 - basis_vectors2, dim=1) ** 2)
 
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
