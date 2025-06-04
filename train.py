@@ -115,30 +115,39 @@ class Trainer:
             print("Initializing weights")
             self.model.apply(weights_init_orthogonal)
 
-    def _criterion(self, z_dot, basis_vectors): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
-        basis_vectors = basis_vectors.view(basis_vectors.shape[0], -1, basis_vectors.shape[-1])
+    def _criterion(self, z_dot, basis_vectors1, basis_vectors2): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
+        basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
         z_dot = z_dot.view(z_dot.shape[0], -1)
-        basis_vectors_norms = torch.norm(basis_vectors, dim=1, keepdim=True)
-        basis_vectors = basis_vectors / basis_vectors_norms
-        zero_norms = (basis_vectors_norms == 0).expand_as(basis_vectors)
-        basis_vectors[zero_norms] = 0
-        norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
-        batch_identity = torch.eye(basis_vectors.shape[-1], device=self.device).repeat(basis_vectors.shape[0], 1, 1)
-        orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
-                                                 batch_identity)
+        basis_vectors_norms = torch.norm(basis_vectors1, dim=1, keepdim=True)
+        basis_vectors1 = basis_vectors1 / basis_vectors_norms
+        zero_norms = (basis_vectors_norms == 0).expand_as(basis_vectors1)
+        basis_vectors1[zero_norms] = 0
+        # norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
+        # batch_identity = torch.eye(basis_vectors.shape[-1], device=self.device).repeat(basis_vectors.shape[0], 1, 1)
+        # orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
+        #                                          batch_identity)
+        orthogonality_loss = torch.tensor(0.0, device=self.device)
+        norm_loss = torch.tensor(0.0, device=self.device)
+
+        tau = 0.05 # better to change this to ||z1-z2||?
+        smoothness_loss = -torch.mean(torch.log(torch.norm(basis_vectors1 - basis_vectors2, dim=1, keepdim=True)/tau + 1e-6))
 
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
         # z_unit[z_unit.isnan()] = 0
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
-        linear_fit = torch.linalg.lstsq(basis_vectors, z_unit.unsqueeze(2)) # A.X = B
-        residuals = torch.bmm(basis_vectors, linear_fit.solution) - z_unit.unsqueeze(2)
-        se = residuals ** 2
-        sse = se.sum(dim=1)
-        span_loss = torch.mean(sse) #self.span_criterion(sse, torch.zeros_like(sse))
+        linear_fit1 = torch.linalg.lstsq(basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
+        linear_fit2 = torch.linalg.lstsq(basis_vectors2, -1 * z_unit.unsqueeze(2))
+        residuals1 = torch.bmm(basis_vectors1, linear_fit1.solution) - z_unit.unsqueeze(2)
+        residuals2 = torch.bmm(basis_vectors2, linear_fit2.solution) - (-1 * z_unit.unsqueeze(2))
 
-        # return norm_loss, span_loss
-        return norm_loss, orthogonality_loss, span_loss
+        sse1 = torch.sum(residuals1 ** 2, dim=1)
+        sse2 = torch.sum(residuals2 ** 2, dim=1)
+        span_loss1 = torch.mean(sse1)
+        span_loss2 = torch.mean(sse2)
+        span_loss = (span_loss1 + span_loss2) / 2
+
+        return norm_loss, orthogonality_loss, span_loss, smoothness_loss
 
     def _load_snapshot(self, snapshot_path):
         snapshot = torch.load(snapshot_path, map_location=self.device, weights_only=True)
@@ -168,6 +177,7 @@ class Trainer:
         cum_norm_loss = 0.0
         cum_orth_loss = 0.0
         cum_span_loss = 0.0
+        cum_smooth_loss = 0.0
         for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
             if params.PARALLEL:
                 viewpoint1 = viewpoint1.to(self.gpu_id)
@@ -176,9 +186,11 @@ class Trainer:
                 z1 = self.encoding_model(viewpoint1)
                 z2 = self.encoding_model(viewpoint2)
 
-            basis_vectors = self.model(z1)
-            norm_loss, orthogonality_loss, span_loss = self._criterion(z2 - z1, basis_vectors)
-            loss = norm_loss + orthogonality_loss + span_loss
+            basis_vectors1 = self.model(z1)
+            basis_vectors2 = self.model(z2)
+
+            norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2)
+            loss = norm_loss + orthogonality_loss + span_loss + smoothness_loss
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -187,6 +199,7 @@ class Trainer:
             cum_norm_loss += norm_loss.item()
             cum_orth_loss += orthogonality_loss.item()
             cum_span_loss += span_loss.item()
+            cum_smooth_loss += smoothness_loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
                 self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
@@ -197,7 +210,9 @@ class Trainer:
                                        epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
-                    f"Loss (span, orth, norm) {cum_span_loss / (i_batch + 1)} | "
+                    f"Loss (span, ,smooth, orth, norm) "
+                    f"{cum_span_loss / (i_batch + 1)} | "
+                    f"{cum_smooth_loss / (i_batch + 1)} | "
                     f"{cum_orth_loss / (i_batch + 1)} | "
                     f"{cum_norm_loss / (i_batch + 1)}")
 
@@ -230,10 +245,13 @@ class Trainer:
                     z1 = self.encoding_model(viewpoint1)
                     z2 = self.encoding_model(viewpoint2)
 
-                derivatives = self.model(z1)
+                basis_vectors1 = self.model(z1)
+                basis_vectors2 = self.model(z2)
 
-                norm_loss, span_loss = self._criterion(z2 - z1, derivatives)
-                loss = norm_loss + span_loss
+                norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1,
+                                                                                            basis_vectors1,
+                                                                                            basis_vectors2)
+                loss = norm_loss + orthogonality_loss + span_loss + smoothness_loss
                 loss_sum += loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:

@@ -16,9 +16,9 @@ class Model(nn.Module):
         self.linear8 = LinearBlock2D(input_dim=5 * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)
         self.linear9 = LinearBlock2D(input_dim=7 * 128, hidden_dim=9 * 128, output_dim=12 * 128, layers=2, enable_bn=enable_bn)
         self.linear10 = LinearBlock2D(input_dim=12 * 128, hidden_dim=14 * 128, output_dim=16 * 128, layers=2, enable_bn=enable_bn)
-        self.linear11 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=32 * 128, layers=2, enable_bn=enable_bn)
-        self.linear12 = LinearBlock2D(input_dim=32 * 128, hidden_dim=48 * 128, output_dim=6 * 9 * 128, layers=2, enable_bn=enable_bn)
-        self.out = nn.Linear(in_features=6 * 9 * 128, out_features=6 * 9 * 128)
+        self.linear11 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=3 * 9 * 128, layers=2, enable_bn=enable_bn)
+        self.linear12 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=2, enable_bn=enable_bn)
+        self.out = nn.Linear(in_features=3 * 9 * 128, out_features=3 * 9 * 128)
 
 
     def forward(self, z1):
@@ -37,7 +37,7 @@ class Model(nn.Module):
         x = self.linear12(x)
         x = self.out(x)
 
-        return x.view(x.shape[0], -1, 6)
+        return x.view(x.shape[0], -1, self.n_output_vectors)
 
 class LinearBlock2D(nn.Module):
 
