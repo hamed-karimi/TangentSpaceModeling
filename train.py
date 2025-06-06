@@ -116,21 +116,26 @@ class Trainer:
             self.model.apply(weights_init_orthogonal)
 
     def _criterion(self, z_dot, basis_vectors1, basis_vectors2): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
-        basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
         z_dot = z_dot.view(z_dot.shape[0], -1)
-        basis_vectors_norms = torch.norm(basis_vectors1, dim=1, keepdim=True)
-        basis_vectors1 = basis_vectors1 / basis_vectors_norms
-        zero_norms = (basis_vectors_norms == 0).expand_as(basis_vectors1)
-        basis_vectors1[zero_norms] = 0
+        basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
+        basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
+
+        basis_vectors_norms1 = torch.norm(basis_vectors1, dim=1, keepdim=True)
+        basis_vectors_norms2 = torch.norm(basis_vectors2, dim=1, keepdim=True)
+
+        basis_vectors1 = basis_vectors1 / basis_vectors_norms1
+        basis_vectors2 = basis_vectors2 / basis_vectors_norms2
+
+        # zero_norms = (basis_vectors_norms1 == 0).expand_as(basis_vectors1)
+        # basis_vectors1[zero_norms] = 0
+
         # norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
         # batch_identity = torch.eye(basis_vectors.shape[-1], device=self.device).repeat(basis_vectors.shape[0], 1, 1)
         # orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
         #                                          batch_identity)
-        orthogonality_loss = torch.tensor(0.0, device=self.device)
-        norm_loss = torch.tensor(0.0, device=self.device)
 
-        # tau = 0.05 # better to change this to ||z1-z2||?
-        smoothness_loss = torch.mean(torch.norm(basis_vectors1 - basis_vectors2, dim=1) ** 2)
+        basis_vectors_diff = (basis_vectors1 - basis_vectors2) # alt: measure the difference between the spaces that these vectors span
+        smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
 
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
@@ -146,6 +151,9 @@ class Trainer:
         span_loss1 = torch.mean(sse1)
         span_loss2 = torch.mean(sse2)
         span_loss = (span_loss1 + span_loss2) / 2
+
+        orthogonality_loss = torch.zeros_like(smoothness_loss)
+        norm_loss = torch.zeros_like(smoothness_loss)
 
         return norm_loss, orthogonality_loss, span_loss, smoothness_loss
 
@@ -190,7 +198,9 @@ class Trainer:
             basis_vectors2 = self.model(z2)
 
             norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2)
-            loss = norm_loss + orthogonality_loss + span_loss + smoothness_loss
+            all_loss = torch.tensor([norm_loss, orthogonality_loss, span_loss, smoothness_loss])
+            loss_weights = torch.tensor([0, 0, .95, .05])
+            loss = all_loss @ loss_weights
 
             self.optimizer.zero_grad()
             loss.backward()
