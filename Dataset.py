@@ -41,7 +41,7 @@ class ShapeNetMultiViewDataset(data.Dataset):
 def load_dataset(split_name: str):
     assert split_name in ['train', 'val', 'test']
     split_dir = os.path.join('Dataset Splits', split_name)
-    file_paths = np.load(os.path.join(split_dir, split_name + '.npy'), allow_pickle=True, mmap_mode='r')
+    file_paths = np.load(os.path.join(split_dir, split_name + '.npy'), allow_pickle=True)
     split_transform = get_split_transforms()
     split_dataset = ShapeNetMultiViewDataset(file_paths.tolist(), transform=split_transform)
     return split_dataset
