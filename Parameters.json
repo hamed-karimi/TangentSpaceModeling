@@ -9,7 +9,7 @@
     "MOMENTUM": 0.9,
     "WEIGHT_DECAY": 1e-4,
     "DO_VALIDATE": false,
-    "DATASET_PATH": "/projects/sccn/andromeda1/karimike/SSL_Project/dataset/ShapeNet/ShapeNetCoreMultiViewDataset_A2",
+    "DATASET_PATH": "/projects/sccn/andromeda1/karimike/SSL_Project/dataset/ShapeNet/ShapeNetCoreMultiViewDataset_A2_v2",
     "SNAPSHOT_DIR": "./snapshots",
     "LOG_PATH": "./log.txt",
     "DEVICE": "cuda"
