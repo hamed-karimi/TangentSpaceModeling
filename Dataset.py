@@ -45,7 +45,7 @@ def load_dataset(split_name: str):
     assert split_name in ['train', 'val', 'test']
     split_dir = os.path.join('Dataset Splits', split_name)
     split_info = pickle.load(open(os.path.join(split_dir, 'split_info.pkl'), 'rb'))
-    data_models_dir_list = np.load(split_info['data_models_dir_list_path'], allow_pickle=True)
+    data_models_dir_list = np.load(os.path.join(split_dir, 'data_models_dir_list.npy'), allow_pickle=True)
     path_indices_list = np.load(os.path.join(split_dir, 'file_indices.npy'), allow_pickle=True)
     split_transform = get_split_transforms()
     split_dataset = ShapeNetMultiViewDataset(path_indices_list.tolist(),
