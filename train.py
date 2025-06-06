@@ -280,7 +280,7 @@ if __name__ == "__main__":
         rank = 0
 
     if rank == 0:
-        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, test=False, use_prev_indices=False)
+        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, rotation_sample_num=50, use_prev_indices=False, test=False)
         if params.PARALLEL:
             torch.distributed.barrier()
 
