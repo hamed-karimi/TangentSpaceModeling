@@ -41,7 +41,7 @@ class ShapeNetMultiViewDataset(data.Dataset):
 def load_dataset(split_name: str):
     assert split_name in ['train', 'val', 'test']
     split_dir = os.path.join('Dataset Splits', split_name)
-    file_paths = np.load(os.path.join(split_dir, split_name + '.npy'), allow_pickle=True)
+    file_paths = np.load(os.path.join(split_dir, split_name + '.npy'), allow_pickle=True, mmap_mode='r')
     split_transform = get_split_transforms()
     split_dataset = ShapeNetMultiViewDataset(file_paths.tolist(), transform=split_transform)
     return split_dataset
@@ -81,7 +81,7 @@ def generate_datasets(dataset_path, use_prev_indices=False, test=False):
                 for j in range(50):
                     rotation_dir = os.path.join(rotation_models_dir, str(j))
                     try:
-                        all_image_names = sorted([name for name in os.listdir(rotation_dir) if name.endswith('.png')], key=lambda x: int(x.split('.')[0]))
+                        all_image_names = sorted([f.name for f in os.scandir(rotation_dir) if f.name.endswith('.png')], key=lambda x: int(x.split('.')[0]))
                         even_frames_paths = [(os.path.join(rotation_dir, all_image_names[j]),
                                              os.path.join(rotation_dir, all_image_names[j + 2])) for j in
                                              range(0, len(all_image_names) - 2, 2)]
