@@ -2,6 +2,8 @@
 
 import os
 from copy import deepcopy
+from datetime import timedelta
+
 from models import TangentSpaceModel
 from models.CompressionAEModel import load_encoding_model
 import torch
@@ -31,7 +33,7 @@ def weights_init_orthogonal(module):
 def setup_ddp(parallel):
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
-    init_process_group(backend='nccl')
+    init_process_group(backend='nccl', timeout=timedelta(seconds=3600))
 
     return local_rank
 
