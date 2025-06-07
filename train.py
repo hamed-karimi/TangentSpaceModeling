@@ -33,7 +33,7 @@ def weights_init_orthogonal(module):
 def setup_ddp(parallel):
     local_rank = int(os.environ["LOCAL_RANK"])
     torch.cuda.set_device(local_rank)
-    init_process_group(backend='nccl', timeout=timedelta(seconds=3600))
+    init_process_group(backend='nccl', timeout=timedelta(seconds=10*3600))
 
     return local_rank
 
