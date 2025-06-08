@@ -4,6 +4,8 @@ import os
 from copy import deepcopy
 from datetime import timedelta
 
+from sympy.ntheory.factor_ import smoothness
+
 from models import TangentSpaceModel
 from models.CompressionAEModel import load_encoding_model
 import torch
@@ -117,37 +119,36 @@ class Trainer:
             print("Initializing weights")
             self.model.apply(weights_init_orthogonal)
 
-    def _criterion(self, z_dot, basis_vectors1, basis_vectors2): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
+    def _criterion(self, z_dot, basis_vectors1, basis_vectors2=None): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
         vectorized_z_dot = z_dot.view(z_dot.shape[0], -1)
         vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
-        vectorized_basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
-
         basis_vectors_norms1 = torch.norm(vectorized_basis_vectors1, dim=1, keepdim=True)
-        basis_vectors_norms2 = torch.norm(vectorized_basis_vectors2, dim=1, keepdim=True)
-
         normalized_basis_vectors1 = basis_vectors1 / basis_vectors_norms1
-        normalized_basis_vectors2 = basis_vectors2 / basis_vectors_norms2
-
-        basis_vectors_diff = (normalized_basis_vectors1 - normalized_basis_vectors2) # alt: measure the difference between the spaces that these vectors span
-        smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
-
         z_dot_norm = torch.norm(vectorized_z_dot, dim=1, keepdim=True)
         z_unit = vectorized_z_dot / z_dot_norm
-
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
+
         linear_fit1 = torch.linalg.lstsq(normalized_basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
-        linear_fit2 = torch.linalg.lstsq(basis_vectors2, -1 * z_unit.unsqueeze(2))
         residuals1 = torch.bmm(normalized_basis_vectors1, linear_fit1.solution) - z_unit.unsqueeze(2)
-        residuals2 = torch.bmm(basis_vectors2, linear_fit2.solution) - (-1 * z_unit.unsqueeze(2))
-
         sse1 = torch.sum(residuals1 ** 2, dim=1)
-        sse2 = torch.sum(residuals2 ** 2, dim=1)
         span_loss1 = torch.mean(sse1)
-        span_loss2 = torch.mean(sse2)
-        span_loss = (span_loss1 + span_loss2) / 2
+        span_loss = span_loss1
+        smoothness_loss = torch.zeros_like(span_loss)
 
-        orthogonality_loss = torch.zeros_like(smoothness_loss)
-        norm_loss = torch.zeros_like(smoothness_loss)
+        if basis_vectors2 is not None:
+            vectorized_basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
+            basis_vectors_norms2 = torch.norm(vectorized_basis_vectors2, dim=1, keepdim=True)
+            normalized_basis_vectors2 = basis_vectors2 / basis_vectors_norms2
+            basis_vectors_diff = (normalized_basis_vectors1 - normalized_basis_vectors2) # alt: measure the difference between the spaces that these vectors span
+            smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
+            linear_fit2 = torch.linalg.lstsq(basis_vectors2, -1 * z_unit.unsqueeze(2))
+            residuals2 = torch.bmm(basis_vectors2, linear_fit2.solution) - (-1 * z_unit.unsqueeze(2))
+            sse2 = torch.sum(residuals2 ** 2, dim=1)
+            span_loss2 = torch.mean(sse2)
+            span_loss = (span_loss1 + span_loss2) / 2
+
+        orthogonality_loss = torch.zeros_like(span_loss)
+        norm_loss = torch.zeros_like(span_loss)
 
         return norm_loss, orthogonality_loss, span_loss, smoothness_loss
 
@@ -191,10 +192,11 @@ class Trainer:
                 z2 = self.encoding_model(viewpoint2)
 
             basis_vectors1 = self.model(z1)
-            basis_vectors2 = self.model(z2)
+            # basis_vectors2 = self.model(z2)
 
-            norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2)
-            loss = .95 * span_loss + .05 * smoothness_loss
+            norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2=None)
+            # loss = .95 * span_loss + .05 * smoothness_loss
+            loss = span_loss
 
             self.optimizer.zero_grad()
             loss.backward()
