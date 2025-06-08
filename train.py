@@ -119,14 +119,14 @@ class Trainer:
 
     def _criterion(self, z_dot, basis_vectors1, basis_vectors2): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
         z_dot = z_dot.view(z_dot.shape[0], -1)
-        basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
-        basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
+        vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
+        vectorized_basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
 
-        basis_vectors_norms1 = torch.norm(basis_vectors1, dim=1, keepdim=True)
-        basis_vectors_norms2 = torch.norm(basis_vectors2, dim=1, keepdim=True)
+        basis_vectors_norms1 = torch.norm(vectorized_basis_vectors1, dim=1, keepdim=True)
+        basis_vectors_norms2 = torch.norm(vectorized_basis_vectors2, dim=1, keepdim=True)
 
-        basis_vectors1 = basis_vectors1 / basis_vectors_norms1
-        basis_vectors2 = basis_vectors2 / basis_vectors_norms2
+        normalized_basis_vectors1 = basis_vectors1 / basis_vectors_norms1
+        normalized_basis_vectors2 = basis_vectors2 / basis_vectors_norms2
 
         # zero_norms = (basis_vectors_norms1 == 0).expand_as(basis_vectors1)
         # basis_vectors1[zero_norms] = 0
@@ -136,16 +136,16 @@ class Trainer:
         # orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
         #                                          batch_identity)
 
-        basis_vectors_diff = (basis_vectors1 - basis_vectors2) # alt: measure the difference between the spaces that these vectors span
+        basis_vectors_diff = (normalized_basis_vectors1 - normalized_basis_vectors2) # alt: measure the difference between the spaces that these vectors span
         smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
 
         z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
         z_unit = z_dot / z_dot_norm
         # z_unit[z_unit.isnan()] = 0
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
-        linear_fit1 = torch.linalg.lstsq(basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
+        linear_fit1 = torch.linalg.lstsq(normalized_basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
         linear_fit2 = torch.linalg.lstsq(basis_vectors2, -1 * z_unit.unsqueeze(2))
-        residuals1 = torch.bmm(basis_vectors1, linear_fit1.solution) - z_unit.unsqueeze(2)
+        residuals1 = torch.bmm(normalized_basis_vectors1, linear_fit1.solution) - z_unit.unsqueeze(2)
         residuals2 = torch.bmm(basis_vectors2, linear_fit2.solution) - (-1 * z_unit.unsqueeze(2))
 
         sse1 = torch.sum(residuals1 ** 2, dim=1)
