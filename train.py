@@ -118,7 +118,7 @@ class Trainer:
             self.model.apply(weights_init_orthogonal)
 
     def _criterion(self, z_dot, basis_vectors1, basis_vectors2): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
-        z_dot = z_dot.view(z_dot.shape[0], -1)
+        vectorized_z_dot = z_dot.view(z_dot.shape[0], -1)
         vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
         vectorized_basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
 
@@ -128,20 +128,12 @@ class Trainer:
         normalized_basis_vectors1 = basis_vectors1 / basis_vectors_norms1
         normalized_basis_vectors2 = basis_vectors2 / basis_vectors_norms2
 
-        # zero_norms = (basis_vectors_norms1 == 0).expand_as(basis_vectors1)
-        # basis_vectors1[zero_norms] = 0
-
-        # norm_loss = self.unit_criterion(basis_vectors_norms, torch.ones_like(basis_vectors_norms)) # maybe not necessary to be normal
-        # batch_identity = torch.eye(basis_vectors.shape[-1], device=self.device).repeat(basis_vectors.shape[0], 1, 1)
-        # orthogonality_loss = self.orth_criterion(torch.bmm(basis_vectors.transpose(1, 2), basis_vectors),
-        #                                          batch_identity)
-
         basis_vectors_diff = (normalized_basis_vectors1 - normalized_basis_vectors2) # alt: measure the difference between the spaces that these vectors span
         smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
 
-        z_dot_norm = torch.norm(z_dot, dim=1, keepdim=True)
-        z_unit = z_dot / z_dot_norm
-        # z_unit[z_unit.isnan()] = 0
+        z_dot_norm = torch.norm(vectorized_z_dot, dim=1, keepdim=True)
+        z_unit = vectorized_z_dot / z_dot_norm
+
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
         linear_fit1 = torch.linalg.lstsq(normalized_basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
         linear_fit2 = torch.linalg.lstsq(basis_vectors2, -1 * z_unit.unsqueeze(2))
@@ -189,6 +181,7 @@ class Trainer:
         cum_span_loss = 0.0
         cum_smooth_loss = 0.0
         torch.autograd.set_detect_anomaly(True)
+        print(f'run {epoch} in progress')
         for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
             if params.PARALLEL:
                 viewpoint1 = viewpoint1.to(self.gpu_id)
@@ -282,6 +275,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, rotation_sample_num=50, use_prev_indices=True, test=False)
+        print('dataset ready')
         if params.PARALLEL:
             torch.distributed.barrier()
 
@@ -291,7 +285,7 @@ if __name__ == "__main__":
         datasets_dict = {'train': None, 'val': None, 'test': None}
         for split_name in ['train', 'val']:
             datasets_dict[split_name] = load_dataset(split_name=split_name)
-    print('All nodes in sync, starting training...')
+    print('All nodes in sync')
 
     # parallel = 1
     encoding_model, model, optimizer, scheduler, train_dataloader, val_dataloader = prepare_training_objects(
@@ -307,6 +301,7 @@ if __name__ == "__main__":
         weight_decay=params.WEIGHT_DECAY,
         parallel=params.PARALLEL)
 
+    print('training objects are ready')
     trainer = Trainer(model=model,
                       encoding_model=encoding_model,
                       optimizer=optimizer,
