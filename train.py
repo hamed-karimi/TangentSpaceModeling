@@ -200,9 +200,7 @@ class Trainer:
             basis_vectors2 = self.model(z2)
 
             norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2)
-            all_loss = torch.tensor([norm_loss, orthogonality_loss, span_loss, smoothness_loss])
-            loss_weights = torch.tensor([0, 0, .95, .05])
-            loss = all_loss @ loss_weights
+            loss = .95 * span_loss + .05 * smoothness_loss
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -263,7 +261,7 @@ class Trainer:
                 norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1,
                                                                                             basis_vectors1,
                                                                                             basis_vectors2)
-                loss = norm_loss + orthogonality_loss + span_loss + smoothness_loss
+                loss = .95 * span_loss + .05 * smoothness_loss
                 loss_sum += loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
@@ -282,7 +280,7 @@ if __name__ == "__main__":
         rank = 0
 
     if rank == 0:
-        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, rotation_sample_num=50, use_prev_indices=False, test=False)
+        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, rotation_sample_num=50, use_prev_indices=True, test=False)
         if params.PARALLEL:
             torch.distributed.barrier()
 
