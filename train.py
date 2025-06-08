@@ -188,6 +188,7 @@ class Trainer:
         cum_orth_loss = 0.0
         cum_span_loss = 0.0
         cum_smooth_loss = 0.0
+        torch.autograd.set_detect_anomaly(True)
         for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
             if params.PARALLEL:
                 viewpoint1 = viewpoint1.to(self.gpu_id)
