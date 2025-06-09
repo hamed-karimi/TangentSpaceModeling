@@ -11,13 +11,17 @@ import numpy as np
 
 
 class ShapeNetMultiViewDataset(data.Dataset):
-    def __init__(self, data_models_path_indices, transform=None, data_models_dir_list=None, rotation_sample_num=50):
-        self.data_models_path_indices = data_models_path_indices
+    def __init__(self, data_models_path_indices, dataset_path=None, object_category=None, transform=None, data_models_dir_list=None, rotation_sample_num=50):
+        if object_category is None:
+            self.data_models_path_indices = data_models_path_indices
+        else:
+            self.data_models_path_indices = get_object_category_indices(object_category=object_category,
+                                                                        dataset_path=dataset_path,
+                                                                        file_indices=data_models_path_indices)
         self.data_models_dir_list = data_models_dir_list
         self.rotation_sample_num = rotation_sample_num
         self.transform = transform
         self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        # self.encoding_model = encoding_model #load_encoding_model(self.device)
 
 
     def __len__(self):
@@ -40,8 +44,17 @@ class ShapeNetMultiViewDataset(data.Dataset):
 
         return viewpoint_path1, viewpoint1, viewpoint_path2, viewpoint2
 
+def get_object_category_indices(object_category: str, dataset_path, file_indices):
+    data_categories_path_list = sorted(os.path.join(dataset_path, x) for x in os.listdir(dataset_path) if '.' not in x)
+    data_models_dir_list = np.array(
+        [os.path.join(x, y) for x in data_categories_path_list for y in os.listdir(x) if '.' not in y], dtype=object)
 
-def load_dataset(split_name: str):
+    file_pattern = os.path.join(dataset_path, object_category)
+    category_indices = [i for i in range(data_models_dir_list.shape[0]) if data_models_dir_list[i].startswith(file_pattern)]
+    mask = np.isin(file_indices[:, 0], category_indices)
+    return file_indices[mask, :]
+
+def load_dataset(split_name: str, object_category=None):
     assert split_name in ['train', 'val', 'test']
     split_dir = os.path.join('Dataset Splits', split_name)
     split_info = pickle.load(open(os.path.join(split_dir, 'split_info.pkl'), 'rb'))
@@ -49,9 +62,11 @@ def load_dataset(split_name: str):
     path_indices_list = np.load(os.path.join(split_dir, 'file_indices.npy'), allow_pickle=True)
     split_transform = get_split_transforms()
     split_dataset = ShapeNetMultiViewDataset(path_indices_list.tolist(),
+                                             object_category=object_category,
                                              transform=split_transform,
                                              data_models_dir_list=data_models_dir_list,
-                                             rotation_sample_num=split_info['rotation_sample_num'] )
+                                             rotation_sample_num=split_info['rotation_sample_num'])
+
     return split_dataset
 
 def save_dataset(split_name: str, path_indices_list: list, data_models_dir_list, rotation_sample_num):
@@ -76,11 +91,13 @@ def get_split_transforms():
     ])
     return transform
 
-def generate_datasets(dataset_path, rotation_sample_num=50, use_prev_indices=False, test=False):
+def generate_datasets(dataset_path, object_category=None, rotation_sample_num=50, use_prev_indices=False, test=False):
+    if not use_prev_indices and object_category is not None:
+        raise ValueError('object_category cannot be used with use_prev_indices=True (first generate dataset with  use_prev_indices=False)')
     if use_prev_indices:
         datasets = {'train': None, 'val': None, 'test': None}
         for split_name in ['train', 'val']:
-            datasets[split_name] = load_dataset(split_name=split_name)
+            datasets[split_name] = load_dataset(split_name=split_name, object_category=object_category)
     else:
 
         dataset_split_file_path_indices = {'train': [], 'val': [], 'test': []}
@@ -111,14 +128,16 @@ def generate_datasets(dataset_path, rotation_sample_num=50, use_prev_indices=Fal
         # encoding_model = load_encoding_model()
         for split_name in ['train', 'val', 'test']:
             split_transform = get_split_transforms()
-            datasets[split_name] = ShapeNetMultiViewDataset(dataset_split_file_path_indices[split_name],
-                                                            transform=split_transform,
-                                                            data_models_dir_list=data_models_dir_list,
-                                                            rotation_sample_num=rotation_sample_num)
-
             save_dataset(split_name,
                          dataset_split_file_path_indices[split_name],
                          data_models_dir_list,
                          rotation_sample_num)
+            datasets[split_name] = ShapeNetMultiViewDataset(dataset_split_file_path_indices[split_name],
+                                                            object_category=object_category,
+                                                            transform=split_transform,
+                                                            data_models_dir_list=data_models_dir_list,
+                                                            rotation_sample_num=rotation_sample_num)
+
+
         print('train size: ', len(datasets['train']), 'val size: ', len(datasets['val']), 'test size: ', len(datasets['test']))
     return datasets

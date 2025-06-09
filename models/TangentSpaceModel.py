@@ -20,6 +20,33 @@ class Model(nn.Module):
         self.linear12 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=4, enable_bn=enable_bn)
         self.out = nn.Linear(in_features=3 * 9 * 128, out_features=3 * 9 * 128)
 
+    # self.linear1 = LinearBlock2D(input_dim=9 * 128, hidden_dim=4 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
+    # self.linear2 = LinearBlock2D(input_dim=2 * 128, hidden_dim=1 * 128, output_dim=0.5 * 128, layers=2, enable_bn=enable_bn)
+    # elf.linear1 = LinearBlock2D(input_dim=0.5 * 128, hidden_dim=1 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
+    # self.linear2 = LinearBlock2D(input_dim=2 * 128, hidden_dim=4 * 128, output_dim=9 * 128, layers=2, enable_bn=enable_bn)
+    #
+    # self.linear3 = LinearBlock2D(input_dim=5 * 128, hidden_dim=3 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
+    # self.linear4 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
+    # self.linear5 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=4,
+    #                              enable_bn=enable_bn)
+    # self.linear6 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=2,
+    #                              enable_bn=enable_bn)
+    # self.linear7 = LinearBlock2D(input_dim=2 * 128, hidden_dim=3 * 128, output_dim=5 * 128, layers=2,
+    #                              enable_bn=enable_bn)
+    # self.linear8 = LinearBlock2D(input_dim=5 * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2,
+    #                              enable_bn=enable_bn)
+    # self.linear9 = LinearBlock2D(input_dim=7 * 128, hidden_dim=9 * 128, output_dim=12 * 128, layers=2,
+    #                              enable_bn=enable_bn)
+    # self.linear10 = LinearBlock2D(input_dim=12 * 128, hidden_dim=14 * 128, output_dim=16 * 128, layers=2,
+    #                               enable_bn=enable_bn)
+    # self.linear11 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=3 * 9 * 128, layers=2,
+    #                               enable_bn=enable_bn)
+    # self.linear12 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=4,
+    #                               enable_bn=enable_bn)
+    # self.out = nn.Linear(in_features=3 * 9 * 128, out_features=3 * 9 * 128)
+
+
+
 
     def forward(self, z1):
         x = torch.view_copy(z1, (z1.shape[0], -1))

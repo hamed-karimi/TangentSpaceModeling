@@ -123,7 +123,7 @@ class Trainer:
         vectorized_z_dot = z_dot.view(z_dot.shape[0], -1)
         vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
         basis_vectors_norms1 = torch.norm(vectorized_basis_vectors1, dim=1, keepdim=True)
-        normalized_basis_vectors1 = basis_vectors1 / basis_vectors_norms1
+        normalized_basis_vectors1 = vectorized_basis_vectors1 / basis_vectors_norms1
         z_dot_norm = torch.norm(vectorized_z_dot, dim=1, keepdim=True)
         z_unit = vectorized_z_dot / z_dot_norm
         z_unit[z_dot_norm.squeeze() == 0, :] = 0
@@ -141,7 +141,7 @@ class Trainer:
             normalized_basis_vectors2 = basis_vectors2 / basis_vectors_norms2
             basis_vectors_diff = (normalized_basis_vectors1 - normalized_basis_vectors2) # alt: measure the difference between the spaces that these vectors span
             smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
-            linear_fit2 = torch.linalg.lstsq(basis_vectors2, -1 * z_unit.unsqueeze(2))
+            linear_fit2 = torch.linalg.lstsq(vectorized_basis_vectors2, -1 * z_unit.unsqueeze(2))
             residuals2 = torch.bmm(basis_vectors2, linear_fit2.solution) - (-1 * z_unit.unsqueeze(2))
             sse2 = torch.sum(residuals2 ** 2, dim=1)
             span_loss2 = torch.mean(sse2)
@@ -276,7 +276,11 @@ if __name__ == "__main__":
         rank = 0
 
     if rank == 0:
-        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH, rotation_sample_num=50, use_prev_indices=True, test=False)
+        datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH,
+                                          object_category='02876657', # bottle
+                                          rotation_sample_num=50,
+                                          use_prev_indices=True,
+                                          test=False)
         print('dataset ready')
         if params.PARALLEL:
             torch.distributed.barrier()
