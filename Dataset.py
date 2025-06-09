@@ -54,7 +54,7 @@ def get_object_category_indices(object_category: str, dataset_path, file_indices
     mask = np.isin(file_indices[:, 0], category_indices)
     return file_indices[mask, :]
 
-def load_dataset(split_name: str, object_category=None):
+def load_dataset(split_name: str, object_category=None, dataset_path=None):
     assert split_name in ['train', 'val', 'test']
     split_dir = os.path.join('Dataset Splits', split_name)
     split_info = pickle.load(open(os.path.join(split_dir, 'split_info.pkl'), 'rb'))
@@ -62,6 +62,7 @@ def load_dataset(split_name: str, object_category=None):
     path_indices_list = np.load(os.path.join(split_dir, 'file_indices.npy'), allow_pickle=True)
     split_transform = get_split_transforms()
     split_dataset = ShapeNetMultiViewDataset(path_indices_list.tolist(),
+                                             dataset_path=dataset_path,
                                              object_category=object_category,
                                              transform=split_transform,
                                              data_models_dir_list=data_models_dir_list,
@@ -97,7 +98,7 @@ def generate_datasets(dataset_path, object_category=None, rotation_sample_num=50
     if use_prev_indices:
         datasets = {'train': None, 'val': None, 'test': None}
         for split_name in ['train', 'val']:
-            datasets[split_name] = load_dataset(split_name=split_name, object_category=object_category)
+            datasets[split_name] = load_dataset(split_name=split_name, object_category=object_category, dataset_path=dataset_path)
     else:
 
         dataset_split_file_path_indices = {'train': [], 'val': [], 'test': []}

@@ -270,6 +270,7 @@ if __name__ == "__main__":
     with open('./Parameters.json', 'r') as json_file:
         params = json.load(json_file,
                            object_hook=lambda d: SimpleNamespace(**d))
+    object_category = '02876657'
     if params.PARALLEL:
         rank = setup_ddp(parallel=params.PARALLEL)
     else:
@@ -277,7 +278,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH,
-                                          object_category='02876657', # bottle
+                                          object_category=None, # bottle
                                           rotation_sample_num=50,
                                           use_prev_indices=True,
                                           test=False)
@@ -290,7 +291,9 @@ if __name__ == "__main__":
             torch.distributed.barrier()
         datasets_dict = {'train': None, 'val': None, 'test': None}
         for split_name in ['train', 'val']:
-            datasets_dict[split_name] = load_dataset(split_name=split_name)
+            datasets_dict[split_name] = load_dataset(split_name=split_name,
+                                                     object_category=object_category,
+                                                     dataset_path=params.DATASET_PATH)
     print('All nodes in sync')
 
     # parallel = 1
