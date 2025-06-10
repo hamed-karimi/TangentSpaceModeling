@@ -319,7 +319,7 @@ if __name__ == "__main__":
                       val_dataloader=val_dataloader,
                       parallel=params.PARALLEL,
                       save_every=1,
-                      print_every=1000,
+                      print_every=100,
                       snapshot_dir=params.SNAPSHOT_DIR,
                       snapshot_path=os.path.join(params.SNAPSHOT_DIR, ''))
 
