@@ -186,6 +186,7 @@ class Trainer:
         cum_orth_loss = 0.0
         cum_span_loss = 0.0
         cum_smooth_loss = 0.0
+        cum_loss = 0.0
         torch.autograd.set_detect_anomaly(True)
         print(f'run {epoch} in progress')
         for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
@@ -211,6 +212,7 @@ class Trainer:
             cum_orth_loss += orthogonality_loss.item()
             cum_span_loss += span_loss.item()
             cum_smooth_loss += smoothness_loss.item()
+            cum_loss += loss.item()
 
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
                 self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
@@ -221,11 +223,10 @@ class Trainer:
                                        epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
-                    f"Loss (span, ,smooth, orth, norm) "
+                    f"Loss (span, orth, total) "
                     f"{cum_span_loss / (i_batch + 1)} | "
-                    f"{cum_smooth_loss / (i_batch + 1)} | "
                     f"{cum_orth_loss / (i_batch + 1)} | "
-                    f"{cum_norm_loss / (i_batch + 1)}")
+                    f"{cum_loss / (i_batch + 1)}")
 
         self.scheduler.step()
 
