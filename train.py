@@ -120,13 +120,13 @@ class Trainer:
             self.model.apply(weights_init_orthogonal)
 
     def _criterion(self, z_dot, basis_vectors1, basis_vectors2=None): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
-        vectorized_z_dot = z_dot.view(z_dot.shape[0], -1, z_dot.shape[-1])
+        vectorized_z_dot = z_dot.view(z_dot.shape[0], -1)
         vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
         basis_vectors_norms1 = torch.norm(vectorized_basis_vectors1, dim=1, keepdim=True)
         normalized_basis_vectors1 = vectorized_basis_vectors1 / basis_vectors_norms1
         z_dot_norm = torch.norm(vectorized_z_dot, dim=1, keepdim=True)
         z_unit = vectorized_z_dot / z_dot_norm
-        z_unit[z_dot_norm.squeeze() == 0, :] = 0
+        # z_unit[z_dot_norm.squeeze() == 0, :] = 0
 
         linear_fit1 = torch.linalg.lstsq(normalized_basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
         residuals1 = torch.bmm(normalized_basis_vectors1, linear_fit1.solution) - z_unit.unsqueeze(2)
