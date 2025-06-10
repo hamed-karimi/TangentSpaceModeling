@@ -200,7 +200,7 @@ class Trainer:
             # basis_vectors2 = self.model(z2)
 
             norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2=None)
-            loss = .9 * span_loss + .1 * orthogonality_loss
+            loss = 1 * span_loss + 1 * orthogonality_loss
             # loss = span_loss
 
             self.optimizer.zero_grad()
