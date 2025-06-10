@@ -6,62 +6,51 @@ class Model(nn.Module):
         super(Model, self).__init__()
         self.n_output_vectors = n_output_vectors
 
-        self.linear1 = LinearBlock2D(input_dim=9 * 128, hidden_dim=8 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)
-        self.linear2 = LinearBlock2D(input_dim=7 * 128, hidden_dim=6 * 128, output_dim=5 * 128, layers=2, enable_bn=enable_bn)
-        self.linear3 = LinearBlock2D(input_dim=5 * 128, hidden_dim=3 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-        self.linear4 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-        self.linear5 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=4, enable_bn=enable_bn)
-        self.linear6 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-        self.linear7 = LinearBlock2D(input_dim=2 * 128, hidden_dim=3 * 128, output_dim=5 * 128, layers=2, enable_bn=enable_bn)
-        self.linear8 = LinearBlock2D(input_dim=5 * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)
-        self.linear9 = LinearBlock2D(input_dim=7 * 128, hidden_dim=9 * 128, output_dim=12 * 128, layers=2, enable_bn=enable_bn)
-        self.linear10 = LinearBlock2D(input_dim=12 * 128, hidden_dim=14 * 128, output_dim=16 * 128, layers=2, enable_bn=enable_bn)
-        self.linear11 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=3 * 9 * 128, layers=2, enable_bn=enable_bn)
-        self.linear12 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=4, enable_bn=enable_bn)
+        # Encoder (Downsampling path)
+        self.encoder1 = LinearBlock2D(input_dim=9 * 128, hidden_dim=8 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)
+        self.encoder2 = LinearBlock2D(input_dim=7 * 128, hidden_dim=6 * 128, output_dim=5 * 128, layers=2, enable_bn=enable_bn)
+        self.encoder3 = LinearBlock2D(input_dim=5 * 128, hidden_dim=3 * 128, output_dim=1 * 128, layers=2, enable_bn=enable_bn)
+        self.encoder4 = LinearBlock2D(input_dim=1 * 128, hidden_dim=64, output_dim=None, layers=1, enable_bn=enable_bn)
+
+        # Bottleneck
+        self.bottleneck = LinearBlock2D(input_dim=64, hidden_dim=64, output_dim=None, layers=2, enable_bn=enable_bn)
+
+        # Decoder (Upsampling path) with skip connections
+        self.decoder4 = LinearBlock2D(input_dim=64 + 64, hidden_dim=2 * 128, output_dim=1 * 128, layers=2, enable_bn=enable_bn)  # 64 + skip from encoder4
+        self.decoder3 = LinearBlock2D(input_dim=1 * 128 + 1 * 128, hidden_dim=3 * 128, output_dim=5 * 128, layers=2, enable_bn=enable_bn)  # 1*128 + skip from encoder3
+        self.decoder2 = LinearBlock2D(input_dim=5 * 128 + 5 * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)  # 5*128 + skip from encoder2
+        self.decoder1 = LinearBlock2D(input_dim=7 * 128 + 7 * 128, hidden_dim=8 * 128, output_dim=9 * 128, layers=2, enable_bn=enable_bn)  # 7*128 + skip from encoder1
+
+        # Additional dense layers for refinement
+        self.dense1 = LinearBlock2D(input_dim=9 * 128, hidden_dim=12 * 128, output_dim=16 * 128, layers=2, enable_bn=enable_bn)
+        self.dense2 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=3 * 9 * 128, layers=2, enable_bn=enable_bn)
+        self.dense3 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=4, enable_bn=enable_bn)
+
+        # Output layer
         self.out = nn.Linear(in_features=3 * 9 * 128, out_features=3 * 9 * 128)
-
-    # self.linear1 = LinearBlock2D(input_dim=9 * 128, hidden_dim=4 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-    # self.linear2 = LinearBlock2D(input_dim=2 * 128, hidden_dim=1 * 128, output_dim=0.5 * 128, layers=2, enable_bn=enable_bn)
-    # elf.linear1 = LinearBlock2D(input_dim=0.5 * 128, hidden_dim=1 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-    # self.linear2 = LinearBlock2D(input_dim=2 * 128, hidden_dim=4 * 128, output_dim=9 * 128, layers=2, enable_bn=enable_bn)
-    #
-    # self.linear3 = LinearBlock2D(input_dim=5 * 128, hidden_dim=3 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-    # self.linear4 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=2, enable_bn=enable_bn)
-    # self.linear5 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=4,
-    #                              enable_bn=enable_bn)
-    # self.linear6 = LinearBlock2D(input_dim=2 * 128, hidden_dim=2 * 128, output_dim=2 * 128, layers=2,
-    #                              enable_bn=enable_bn)
-    # self.linear7 = LinearBlock2D(input_dim=2 * 128, hidden_dim=3 * 128, output_dim=5 * 128, layers=2,
-    #                              enable_bn=enable_bn)
-    # self.linear8 = LinearBlock2D(input_dim=5 * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2,
-    #                              enable_bn=enable_bn)
-    # self.linear9 = LinearBlock2D(input_dim=7 * 128, hidden_dim=9 * 128, output_dim=12 * 128, layers=2,
-    #                              enable_bn=enable_bn)
-    # self.linear10 = LinearBlock2D(input_dim=12 * 128, hidden_dim=14 * 128, output_dim=16 * 128, layers=2,
-    #                               enable_bn=enable_bn)
-    # self.linear11 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=3 * 9 * 128, layers=2,
-    #                               enable_bn=enable_bn)
-    # self.linear12 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=4,
-    #                               enable_bn=enable_bn)
-    # self.out = nn.Linear(in_features=3 * 9 * 128, out_features=3 * 9 * 128)
-
-
-
 
     def forward(self, z1):
         x = torch.view_copy(z1, (z1.shape[0], -1))
-        x = self.linear1(x)
-        x = self.linear2(x)
-        x = self.linear3(x)
-        x = self.linear4(x)
-        x = self.linear5(x)
-        x = self.linear6(x)
-        x = self.linear7(x)
-        x = self.linear8(x)
-        x = self.linear9(x)
-        x = self.linear10(x)
-        x = self.linear11(x)
-        x = self.linear12(x)
+
+        # Encoder path (store skip connections)
+        enc1 = self.encoder1(x)  # 7 * 128
+        enc2 = self.encoder2(enc1)  # 5 * 128
+        enc3 = self.encoder3(enc2)  # 1 * 128
+        enc4 = self.encoder4(enc3)  # 64
+
+        # Bottleneck
+        bottleneck = self.bottleneck(enc4)  # 64
+
+        # Decoder path (with skip connections)
+        dec4 = self.decoder4(torch.cat([bottleneck, enc4], dim=1))  # Concatenate with enc4 skip
+        dec3 = self.decoder3(torch.cat([dec4, enc3], dim=1))  # Concatenate with enc3 skip
+        dec2 = self.decoder2(torch.cat([dec3, enc2], dim=1))  # Concatenate with enc2 skip
+        dec1 = self.decoder1(torch.cat([dec2, enc1], dim=1))  # Concatenate with enc1 skip
+
+        # Dense refinement layers
+        x = self.dense1(dec1)
+        x = self.dense2(x)
+        x = self.dense3(x)
         x = self.out(x)
 
         return x.view(x.shape[0], -1, self.n_output_vectors)
