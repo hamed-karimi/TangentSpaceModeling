@@ -278,7 +278,7 @@ if __name__ == "__main__":
 
     if rank == 0:
         datasets_dict = generate_datasets(dataset_path=params.DATASET_PATH,
-                                          object_category=None, # bottle
+                                          object_category=object_category, # bottle
                                           rotation_sample_num=50,
                                           use_prev_indices=True,
                                           test=False)
