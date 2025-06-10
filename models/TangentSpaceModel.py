@@ -16,15 +16,15 @@ class Model(nn.Module):
         self.bottleneck = LinearBlock2D(input_dim=64, hidden_dim=64, output_dim=64, layers=2, enable_bn=enable_bn)
 
         # Decoder (Upsampling path) with skip connections
-        self.decoder4 = LinearBlock2D(input_dim=64 + 64, hidden_dim=2 * 128, output_dim=1 * 128, layers=2, enable_bn=enable_bn)  # 64 + skip from encoder4
-        self.decoder3 = LinearBlock2D(input_dim=1 * 128 + 1 * 128, hidden_dim=3 * 128, output_dim=5 * 128, layers=2, enable_bn=enable_bn)  # 1*128 + skip from encoder3
-        self.decoder2 = LinearBlock2D(input_dim=5 * 128 + 5 * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)  # 5*128 + skip from encoder2
-        self.decoder1 = LinearBlock2D(input_dim=7 * 128 + 7 * 128, hidden_dim=8 * 128, output_dim=9 * 128, layers=2, enable_bn=enable_bn)  # 7*128 + skip from encoder1
+        self.decoder4 = LinearBlock2D(input_dim=(1 + 1) * 64,  hidden_dim=1 * 128, output_dim=1 * 128, layers=2, enable_bn=enable_bn)  # 64 + skip from encoder4
+        self.decoder3 = LinearBlock2D(input_dim=(1 + 1) * 128, hidden_dim=3 * 128, output_dim=5 * 128, layers=2, enable_bn=enable_bn)  # 1*128 + skip from encoder3
+        self.decoder2 = LinearBlock2D(input_dim=(5 + 5) * 128, hidden_dim=6 * 128, output_dim=7 * 128, layers=2, enable_bn=enable_bn)  # 5*128 + skip from encoder2
+        self.decoder1 = LinearBlock2D(input_dim=(7 + 7) * 128, hidden_dim=8 * 128, output_dim=9 * 128, layers=2, enable_bn=enable_bn)  # 7*128 + skip from encoder1
 
         # Additional dense layers for refinement
-        self.dense1 = LinearBlock2D(input_dim=9 * 128, hidden_dim=12 * 128, output_dim=16 * 128, layers=2, enable_bn=enable_bn)
-        self.dense2 = LinearBlock2D(input_dim=16 * 128, hidden_dim=24 * 128, output_dim=3 * 9 * 128, layers=2, enable_bn=enable_bn)
-        self.dense3 = LinearBlock2D(input_dim=3 * 9 * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=4, enable_bn=enable_bn)
+        self.dense1 = LinearBlock2D(input_dim=(7 + 9) * 128, hidden_dim=12 * 128, output_dim=16 * 128, layers=2, enable_bn=enable_bn)
+        self.dense2 = LinearBlock2D(input_dim=(5 + 16) * 128, hidden_dim=24 * 128, output_dim=26 * 128, layers=2, enable_bn=enable_bn)
+        self.dense3 = LinearBlock2D(input_dim=(1 + 26) * 128, hidden_dim=3 * 9 * 128, output_dim=3 * 9 * 128, layers=2, enable_bn=enable_bn)
 
         # Output layer
         self.out = nn.Linear(in_features=3 * 9 * 128, out_features=3 * 9 * 128)
@@ -48,9 +48,9 @@ class Model(nn.Module):
         dec1 = self.decoder1(torch.cat([dec2, enc1], dim=1))  # Concatenate with enc1 skip
 
         # Dense refinement layers
-        x = self.dense1(dec1)
-        x = self.dense2(x)
-        x = self.dense3(x)
+        x = self.dense1(torch.cat([dec1, dec2], dim=1))
+        x = self.dense2(torch.cat([x, dec3], dim=1))
+        x = self.dense3(torch.cat([x, dec4], dim=1))
         x = self.out(x)
 
         return x.view(x.shape[0], -1, self.n_output_vectors)
