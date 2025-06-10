@@ -13,7 +13,7 @@ class Model(nn.Module):
         self.encoder4 = LinearBlock2D(input_dim=1 * 128, hidden_dim=64, output_dim=None, layers=1, enable_bn=enable_bn)
 
         # Bottleneck
-        self.bottleneck = LinearBlock2D(input_dim=64, hidden_dim=64, output_dim=None, layers=2, enable_bn=enable_bn)
+        self.bottleneck = LinearBlock2D(input_dim=64, hidden_dim=64, output_dim=64, layers=2, enable_bn=enable_bn)
 
         # Decoder (Upsampling path) with skip connections
         self.decoder4 = LinearBlock2D(input_dim=64 + 64, hidden_dim=2 * 128, output_dim=1 * 128, layers=2, enable_bn=enable_bn)  # 64 + skip from encoder4
