@@ -120,7 +120,7 @@ class Trainer:
             self.model.apply(weights_init_orthogonal)
 
     def _criterion(self, z_dot, basis_vectors1, basis_vectors2=None): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
-        vectorized_z_dot = z_dot.view(z_dot.shape[0], -1)
+        vectorized_z_dot = z_dot.view(z_dot.shape[0], -1, z_dot.shape[-1])
         vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
         basis_vectors_norms1 = torch.norm(vectorized_basis_vectors1, dim=1, keepdim=True)
         normalized_basis_vectors1 = vectorized_basis_vectors1 / basis_vectors_norms1
@@ -133,6 +133,11 @@ class Trainer:
         sse1 = torch.sum(residuals1 ** 2, dim=1)
         span_loss1 = torch.mean(sse1)
         span_loss = span_loss1
+        pairwise_multiplication = torch.bmm(normalized_basis_vectors1.permute([0, 2, 1]),
+                                            normalized_basis_vectors1)
+        batch_identity = torch.eye(pairwise_multiplication.shape[1],
+                                   pairwise_multiplication.shape[2], device=pairwise_multiplication.device).unsqueeze(0)
+        orthogonality_loss = torch.mean((batch_identity.expand(pairwise_multiplication.shape[0], -1, -1) - pairwise_multiplication)**2)
         smoothness_loss = torch.zeros_like(span_loss)
 
         if basis_vectors2 is not None:
@@ -147,7 +152,7 @@ class Trainer:
             span_loss2 = torch.mean(sse2)
             span_loss = (span_loss1 + span_loss2) / 2
 
-        orthogonality_loss = torch.zeros_like(span_loss)
+        # orthogonality_loss = torch.zeros_like(span_loss)
         norm_loss = torch.zeros_like(span_loss)
 
         return norm_loss, orthogonality_loss, span_loss, smoothness_loss
