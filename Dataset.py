@@ -13,11 +13,11 @@ import numpy as np
 class ShapeNetMultiViewDataset(data.Dataset):
     def __init__(self, data_models_path_indices, dataset_path=None, object_category=None, transform=None, data_models_dir_list=None, rotation_sample_num=50):
         if object_category is None:
-            self.data_models_path_indices = data_models_path_indices
+            self.data_models_path_indices = data_models_path_indices.tolist()
         else:
             self.data_models_path_indices = get_object_category_indices(object_category=object_category,
                                                                         dataset_path=dataset_path,
-                                                                        file_indices=data_models_path_indices)
+                                                                        file_indices=data_models_path_indices).tolist()
         self.data_models_dir_list = data_models_dir_list
         self.rotation_sample_num = rotation_sample_num
         self.transform = transform
@@ -61,7 +61,7 @@ def load_dataset(split_name: str, object_category=None, dataset_path=None):
     data_models_dir_list = np.load(os.path.join(split_dir, 'data_models_dir_list.npy'), allow_pickle=True)
     path_indices_list = np.load(os.path.join(split_dir, 'file_indices.npy'), allow_pickle=True)
     split_transform = get_split_transforms()
-    split_dataset = ShapeNetMultiViewDataset(path_indices_list.tolist(),
+    split_dataset = ShapeNetMultiViewDataset(path_indices_list,
                                              dataset_path=dataset_path,
                                              object_category=object_category,
                                              transform=split_transform,
