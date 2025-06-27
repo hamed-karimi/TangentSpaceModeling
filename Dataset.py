@@ -56,6 +56,8 @@ def get_object_category_indices(object_category: str, dataset_path, file_indices
 
 def load_dataset(split_name: str, object_category=None, dataset_path=None):
     assert split_name in ['train', 'val', 'test']
+    if os.path.exists(os.path.join(split_name, object_category)):
+        dataset_path = os.path.join(dataset_path, object_category)
     split_dir = os.path.join('Dataset Splits', split_name)
     split_info = pickle.load(open(os.path.join(split_dir, 'split_info.pkl'), 'rb'))
     data_models_dir_list = np.load(os.path.join(split_dir, 'data_models_dir_list.npy'), allow_pickle=True)
@@ -93,17 +95,19 @@ def get_split_transforms():
     return transform
 
 def generate_datasets(dataset_path, object_category=None, rotation_sample_num=50, use_prev_indices=False, test=False):
-    if not use_prev_indices and object_category is not None:
-        raise ValueError('object_category cannot be used with use_prev_indices=True (first generate dataset with  use_prev_indices=False)')
+    # if not use_prev_indices and object_category is not None:
+    #     raise ValueError('object_category cannot be used with use_prev_indices=True (first generate dataset with  use_prev_indices=False)')
     if use_prev_indices:
         datasets = {'train': None, 'val': None, 'test': None}
         for split_name in ['train', 'val']:
             datasets[split_name] = load_dataset(split_name=split_name, object_category=object_category, dataset_path=dataset_path)
     else:
-
         dataset_split_file_path_indices = {'train': [], 'val': [], 'test': []}
         datasets = {'train': None, 'val': None, 'test': None}
         print('generating datasets...')
+        if object_category is not None:
+            dataset_path = os.path.join(dataset_path, object_category)
+
         data_categories_path_list = sorted(os.path.join(dataset_path, x) for x in os.listdir(dataset_path) if '.' not in x)
         data_models_dir_list = np.array([os.path.join(x, y) for x in data_categories_path_list for y in
                                       os.listdir(x) if '.' not in y], dtype=object)
@@ -129,7 +133,7 @@ def generate_datasets(dataset_path, object_category=None, rotation_sample_num=50
         # encoding_model = load_encoding_model()
         for split_name in ['train', 'val', 'test']:
             split_transform = get_split_transforms()
-            save_dataset(split_name,
+            save_dataset(os.path.join(split_name, object_category if object_category is not None else ''),
                          dataset_split_file_path_indices[split_name],
                          data_models_dir_list,
                          rotation_sample_num)

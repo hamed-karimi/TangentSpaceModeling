@@ -2,7 +2,7 @@
     "N_OUTPUT_VECTORS": 3,
     "PARALLEL": true,
     "N_EPOCHS": 50,
-    "LEARNING_RATE": 0.001,
+    "LEARNING_RATE": 0.01,
     "TRAIN_BATCH_SIZE": 32,
     "VAL_BATCH_SIZE": 512,
     "NUM_WORKERS": 8,

@@ -4,9 +4,9 @@ import os
 from copy import deepcopy
 from datetime import timedelta
 
-from sympy.ntheory.factor_ import smoothness
+from training_utils import tangent_space_criterion, directional_derivative_criterion
 
-from models import TangentSpaceModel
+from models import TangentSpaceModel, DirectionalDerivativeModel
 from models.CompressionAEModel import load_encoding_model
 import torch
 import torch.nn as nn
@@ -53,7 +53,8 @@ def prepare_training_objects(datasets_dict,
                              parallel=1):
 
     encoding_model = load_encoding_model()
-    model = TangentSpaceModel.Model(n_output_vectors, enable_bn)
+    # model = TangentSpaceModel.Model(n_output_vectors, enable_bn)
+    model = DirectionalDerivativeModel.Model(enable_bn)
     optimizer = torch.optim.Adam(params=model.parameters(), #filter(lambda p: p.requires_grad, model.parameters())
                                  lr=lr,
                                  weight_decay=weight_decay)
@@ -119,43 +120,6 @@ class Trainer:
             print("Initializing weights")
             self.model.apply(weights_init_orthogonal)
 
-    def _criterion(self, z_dot, basis_vectors1, basis_vectors2=None): # derivatives_shape (batch, 128*9, 6) # z_dot_shape (batch, 128, 3, 3)
-        vectorized_z_dot = z_dot.view(z_dot.shape[0], -1)
-        vectorized_basis_vectors1 = basis_vectors1.view(basis_vectors1.shape[0], -1, basis_vectors1.shape[-1])
-        basis_vectors_norms1 = torch.norm(vectorized_basis_vectors1, dim=1, keepdim=True)
-        normalized_basis_vectors1 = vectorized_basis_vectors1 / basis_vectors_norms1
-        z_dot_norm = torch.norm(vectorized_z_dot, dim=1, keepdim=True)
-        z_unit = vectorized_z_dot / z_dot_norm
-        # z_unit[z_dot_norm.squeeze() == 0, :] = 0
-
-        linear_fit1 = torch.linalg.lstsq(normalized_basis_vectors1, z_unit.unsqueeze(2)) # A.X = B
-        residuals1 = torch.bmm(normalized_basis_vectors1, linear_fit1.solution) - z_unit.unsqueeze(2)
-        sse1 = torch.sum(residuals1 ** 2, dim=1)
-        span_loss1 = torch.mean(sse1)
-        span_loss = span_loss1
-        pairwise_multiplication = torch.bmm(normalized_basis_vectors1.permute([0, 2, 1]),
-                                            normalized_basis_vectors1)
-        batch_identity = torch.eye(pairwise_multiplication.shape[1],
-                                   pairwise_multiplication.shape[2], device=pairwise_multiplication.device).unsqueeze(0)
-        orthogonality_loss = torch.mean((batch_identity.expand(pairwise_multiplication.shape[0], -1, -1) - pairwise_multiplication)**2)
-        smoothness_loss = torch.zeros_like(span_loss)
-
-        if basis_vectors2 is not None:
-            vectorized_basis_vectors2 = basis_vectors2.view(basis_vectors2.shape[0], -1, basis_vectors2.shape[-1])
-            basis_vectors_norms2 = torch.norm(vectorized_basis_vectors2, dim=1, keepdim=True)
-            normalized_basis_vectors2 = basis_vectors2 / basis_vectors_norms2
-            basis_vectors_diff = (normalized_basis_vectors1 - normalized_basis_vectors2) # alt: measure the difference between the spaces that these vectors span
-            smoothness_loss = torch.mean(torch.sum(basis_vectors_diff ** 2, dim=2))
-            linear_fit2 = torch.linalg.lstsq(vectorized_basis_vectors2, -1 * z_unit.unsqueeze(2))
-            residuals2 = torch.bmm(basis_vectors2, linear_fit2.solution) - (-1 * z_unit.unsqueeze(2))
-            sse2 = torch.sum(residuals2 ** 2, dim=1)
-            span_loss2 = torch.mean(sse2)
-            span_loss = (span_loss1 + span_loss2) / 2
-
-        # orthogonality_loss = torch.zeros_like(span_loss)
-        norm_loss = torch.zeros_like(span_loss)
-
-        return norm_loss, orthogonality_loss, span_loss, smoothness_loss
 
     def _load_snapshot(self, snapshot_path):
         snapshot = torch.load(snapshot_path, map_location=self.device, weights_only=True)
@@ -182,11 +146,12 @@ class Trainer:
 
     def _run_epoch(self, epoch):
         self.model.train()
-        cum_norm_loss = 0.0
-        cum_orth_loss = 0.0
-        cum_span_loss = 0.0
-        cum_smooth_loss = 0.0
-        cum_loss = 0.0
+        cum_x1_loss = 0.0
+        cum_x2_loss = 0.0
+        cum_dd_loss = 0.0
+        # cum_span_loss = 0.0
+        # cum_smooth_loss = 0.0
+        # cum_loss = 0.0
         torch.autograd.set_detect_anomaly(True)
         print(f'run {epoch} in progress')
         for i_batch, (_, viewpoint1, _, viewpoint2) in enumerate(self.train_dataloader):
@@ -197,36 +162,54 @@ class Trainer:
                 z1 = self.encoding_model(viewpoint1)
                 z2 = self.encoding_model(viewpoint2)
 
-            basis_vectors1 = self.model(z1)
+            # basis_vectors1 = self.model(z1)
             # basis_vectors2 = self.model(z2)
+            f_x1 = self.model.encoder(z1)
+            g_f_x1 = self.model.decoder(f_x1)
 
-            norm_loss, orthogonality_loss, span_loss, smoothness_loss = self._criterion(z2 - z1, basis_vectors1, basis_vectors2=None)
-            loss = 1 * span_loss + 1 * orthogonality_loss
+            f_x2 = self.model.encoder(z2)
+            g_f_x2 = self.model.decoder(f_x2)
+
+            v = f_x2 - f_x1
+            v_norm = torch.norm(v, dim=1, keepdim=True)
+            jvp = torch.autograd.functional.jvp(func=self.model.decoder,
+                                                inputs=f_x1.view(f_x1.shape[0], -1),
+                                                v=v / v_norm,
+                                                create_graph=True)[1]
+
+            x1_loss, x2_loss, dd_loss = directional_derivative_criterion(x1=z1,
+                                                                         x2=z2,
+                                                                         x_hat1=g_f_x1,
+                                                                         x_hat2=g_f_x2,
+                                                                         z1=f_x1,
+                                                                         z2=f_x2,
+                                                                         directional_derivative=jvp)
+            loss = x1_loss + x2_loss + dd_loss
             # loss = span_loss
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-            cum_norm_loss += norm_loss.item()
-            cum_orth_loss += orthogonality_loss.item()
-            cum_span_loss += span_loss.item()
-            cum_smooth_loss += smoothness_loss.item()
-            cum_loss += loss.item()
-
+            cum_x1_loss += x1_loss.item()
+            cum_x2_loss += x2_loss.item()
+            cum_dd_loss += dd_loss.item()
+            # cum_smooth_loss += smoothness_loss.item()
+            # cum_loss += loss.item()
+            #
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
-                self.writer.add_scalar("Loss/train-norm", cum_norm_loss / (i_batch + 1),
+                self.writer.add_scalar("Loss/train-norm", cum_x1_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
-                self.writer.add_scalar("Loss/train-orth", cum_orth_loss / (i_batch + 1),
+                self.writer.add_scalar("Loss/train-orth", cum_x2_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
-                self.writer.add_scalar("Loss/train-span", cum_span_loss / (i_batch + 1),
+                self.writer.add_scalar("Loss/train-span", cum_dd_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
                     f"Loss (span, orth, total) "
-                    f"{cum_span_loss / (i_batch + 1)} | "
-                    f"{cum_orth_loss / (i_batch + 1)} | "
-                    f"{cum_loss / (i_batch + 1)}")
+                    f"{cum_x1_loss / (i_batch + 1)} | "
+                    f"{cum_x2_loss / (i_batch + 1)} | "
+                    f"{cum_dd_loss / (i_batch + 1)}")
 
         self.scheduler.step()
 
