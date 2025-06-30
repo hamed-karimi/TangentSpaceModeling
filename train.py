@@ -210,6 +210,8 @@ class Trainer:
 
             cum_x1_loss += x1_loss.item()
             cum_x2_loss += x2_loss.item()
+            if dd_loss is None:
+                dd_loss = torch.tensor(0)
             cum_dd_loss += dd_loss.item()
             # cum_smooth_loss += smoothness_loss.item()
             # cum_loss += loss.item()
