@@ -41,7 +41,7 @@ def tangent_space_criterion(z_dot, basis_vectors1, basis_vectors2=None):  # deri
 
     return norm_loss, orthogonality_loss, span_loss, smoothness_loss
 
-def directional_derivative_criterion(x1, x2, x_hat1, x_hat2, z1, z2, directional_derivative):
+def directional_derivative_criterion(x1, x2, x_hat1, x_hat2, z1, z2, directional_derivative=None):
     # x1 -f-> z1 -g-> x_hat1
 
     x1_vec = x1.view(x1.shape[0], -1)
@@ -49,7 +49,9 @@ def directional_derivative_criterion(x1, x2, x_hat1, x_hat2, z1, z2, directional
     v = z2 - z1
     x1_reconstruction_loss = torch.norm(x1_vec - x_hat1, dim=1).mean()
     x2_reconstruction_loss = torch.norm(x2_vec - x_hat2, dim=1).mean()
-    directional_derivative_loss = torch.norm(directional_derivative - (x2_vec -x1_vec), dim=1).mean()
+    directional_derivative_loss = None
+    if directional_derivative is not None:
+        directional_derivative_loss = torch.norm(directional_derivative - (x2_vec -x1_vec), dim=1).mean()
 
     return x1_reconstruction_loss, x2_reconstruction_loss, directional_derivative_loss
 
