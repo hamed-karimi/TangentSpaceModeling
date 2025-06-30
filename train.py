@@ -198,7 +198,7 @@ class Trainer:
                                                                          z1=f_x1,
                                                                          z2=f_x2,
                                                                          directional_derivative=jvp)
-            loss = x1_loss + x2_loss + dd_loss
+            loss = x1_loss + x2_loss # + dd_loss
             # loss = span_loss
 
             self.optimizer.zero_grad()
