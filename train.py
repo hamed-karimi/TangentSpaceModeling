@@ -194,7 +194,7 @@ class Trainer:
             #                      primals=(f_x1.view(f_x1.shape[0], -1), ),
             #                      tangents=(v_normalized, ))[1]
 
-            x1_loss, x2_loss, dd_loss = directional_derivative_criterion(x1=z1,
+            (x1_loss, x2_loss, dd_loss) = directional_derivative_criterion(x1=z1,
                                                                          x2=z2,
                                                                          x_hat1=g_f_x1,
                                                                          x_hat2=g_f_x2,

@@ -47,12 +47,14 @@ def directional_derivative_criterion(x1, x2, x_hat1, x_hat2, z1, z2, directional
     x1_vec = x1.view(x1.shape[0], -1)
     x2_vec = x2.view(x2.shape[0], -1)
     v = z2 - z1
-    x1_reconstruction_loss = torch.norm(x1_vec - x_hat1, dim=1).mean()
-    x2_reconstruction_loss = torch.norm(x2_vec - x_hat2, dim=1).mean()
+    x1_reconstruction_loss = torch.norm(x1_vec - x_hat1, dim=1) ** 2
+    x2_reconstruction_loss = torch.norm(x2_vec - x_hat2, dim=1) ** 2
     directional_derivative_loss = None
     if directional_derivative is not None:
-        directional_derivative_loss = torch.norm(directional_derivative - (x2_vec -x1_vec), dim=1).mean()
+        directional_derivative_loss = torch.norm(directional_derivative - (x2_vec -x1_vec), dim=1) ** 2
 
-    return x1_reconstruction_loss, x2_reconstruction_loss, directional_derivative_loss
+    return (x1_reconstruction_loss.mean(),
+            x2_reconstruction_loss.mean(),
+            directional_derivative_loss.mean())
 
 
