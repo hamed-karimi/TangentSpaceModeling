@@ -180,15 +180,15 @@ class Trainer:
             f_x2, g_f_x2 = self.model(z2)
             # g_f_x2 = self.model.decoder(f_x2)
 
-            # v = f_x2 - f_x1
-            # v_norm = torch.norm(v, dim=1, keepdim=True)
-            # v_normalized = v / v_norm
-            # v_normalized[(v_norm == 0).squeeze(), :] = 0
-            #
-            # with dual_level():
-            #     inp = make_dual(f_x1.view(f_x1.shape[0], -1), v_normalized.detach())
-            #     out = self.model.module.decoder(inp)
-            #     y, jvp = unpack_dual(out)
+            v = f_x2 - f_x1
+            v_norm = torch.norm(v, dim=1, keepdim=True)
+            v_normalized = v / v_norm
+            v_normalized[(v_norm == 0).squeeze(), :] = 0
+
+            with dual_level():
+                inp = make_dual(f_x1.view(f_x1.shape[0], -1), v_normalized.detach())
+                out = self.model.module.decoder(inp)
+                y, jvp = unpack_dual(out)
 
             # jvp = torch.func.jvp(func=self.model.decoder,
             #                      primals=(f_x1.view(f_x1.shape[0], -1), ),
@@ -200,8 +200,8 @@ class Trainer:
                                                                          x_hat2=g_f_x2,
                                                                          z1=f_x1,
                                                                          z2=f_x2,
-                                                                         directional_derivative=None) #jvp)
-            loss = x1_loss + x2_loss # + dd_loss
+                                                                         directional_derivative=jvp)
+            loss = x1_loss + x2_loss + dd_loss
             # loss = span_loss
 
             self.optimizer.zero_grad()
