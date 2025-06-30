@@ -18,6 +18,7 @@ from Dataset import generate_datasets, load_dataset
 import json
 from types import SimpleNamespace
 import torch.nn.init as init
+from torch.autograd.forward_ad import make_dual, dual_level, unpack_dual
 
 
 def weights_init_orthogonal(module):
@@ -172,10 +173,17 @@ class Trainer:
 
             v = f_x2 - f_x1
             v_norm = torch.norm(v, dim=1, keepdim=True)
-            jvp = torch.autograd.functional.jvp(func=self.model.decoder,
-                                                inputs=f_x1.view(f_x1.shape[0], -1),
-                                                v=v / v_norm,
-                                                create_graph=True)[1]
+            v_normalized = v / v_norm
+            v_normalized[(v_norm == 0).squeeze(), :] = 0
+
+            with dual_level():
+                inp = make_dual(f_x1.view(f_x1.shape[0], -1), v_normalized.detach())
+                out = model.decoder(inp)
+                y, jvp = unpack_dual(out)
+
+            # jvp = torch.func.jvp(func=self.model.decoder,
+            #                      primals=(f_x1.view(f_x1.shape[0], -1), ),
+            #                      tangents=(v_normalized, ))[1]
 
             x1_loss, x2_loss, dd_loss = directional_derivative_criterion(x1=z1,
                                                                          x2=z2,
@@ -198,11 +206,11 @@ class Trainer:
             # cum_loss += loss.item()
             #
             if i_batch % self.print_every == 0 and self.gpu_id == 0:
-                self.writer.add_scalar("Loss/train-norm", cum_x1_loss / (i_batch + 1),
+                self.writer.add_scalar("Loss/x1", cum_x1_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
-                self.writer.add_scalar("Loss/train-orth", cum_x2_loss / (i_batch + 1),
+                self.writer.add_scalar("Loss/x2", cum_x2_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
-                self.writer.add_scalar("Loss/train-span", cum_dd_loss / (i_batch + 1),
+                self.writer.add_scalar("Loss/dd", cum_dd_loss / (i_batch + 1),
                                        epoch * len(self.train_dataloader) + i_batch)
                 print(
                     f"TRN Epoch {epoch} | Batch {i_batch} / {len(self.train_dataloader)} | "
