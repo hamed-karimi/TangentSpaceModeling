@@ -165,11 +165,17 @@ class Trainer:
 
             # basis_vectors1 = self.model(z1)
             # basis_vectors2 = self.model(z2)
-            f_x1 = self.model.encoder(z1)
-            g_f_x1 = self.model.decoder(f_x1)
+            # f_x1 = self.model.encoder(z1)
+            # g_f_x1 = self.model.decoder(f_x1)
+            #
+            # f_x2 = self.model.encoder(z2)
+            # g_f_x2 = self.model.decoder(f_x2)
 
-            f_x2 = self.model.encoder(z2)
-            g_f_x2 = self.model.decoder(f_x2)
+            f_x1, g_f_x1 = self.model(z1)
+            # g_f_x1 = self.model.decoder(f_x1)
+
+            f_x2, g_f_x2 = self.model(z2)
+            # g_f_x2 = self.model.decoder(f_x2)
 
             v = f_x2 - f_x1
             v_norm = torch.norm(v, dim=1, keepdim=True)
@@ -178,7 +184,7 @@ class Trainer:
 
             with dual_level():
                 inp = make_dual(f_x1.view(f_x1.shape[0], -1), v_normalized.detach())
-                out = model.decoder(inp)
+                out = self.model.module.decoder(inp)
                 y, jvp = unpack_dual(out)
 
             # jvp = torch.func.jvp(func=self.model.decoder,

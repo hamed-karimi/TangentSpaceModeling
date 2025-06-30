@@ -7,9 +7,9 @@ class Model(nn.Module):
         self.encoder = Encoder(enable_bn)
         self.decoder = Decoder(enable_bn)
     def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
+        enc = self.encoder(x)
+        dec = self.decoder(enc)
+        return enc, dec
 
 
 class Encoder(nn.Module):
