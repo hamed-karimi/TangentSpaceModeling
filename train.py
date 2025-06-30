@@ -92,7 +92,10 @@ class Trainer:
             self.device = torch.device(f'cuda:{self.gpu_id}')
             self.encoding_model = encoding_model.to(self.device)
             self.model = model.to(self.gpu_id)
-            self.model = DDP(self.model, device_ids=[self.gpu_id], output_device=self.gpu_id)
+            self.model = DDP(self.model,
+                             device_ids=[self.gpu_id],
+                             output_device=self.gpu_id,
+                             broadcast_buffers=False)
         else:
             self.device = torch.device('cpu')
             self.gpu_id = 0
